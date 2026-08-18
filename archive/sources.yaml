@@ -4,19 +4,27 @@
 # kind: microfiche | pdf | paper_scan | web | other
 # hosting: host | link_only   (publishing policy; default is host)
 #
-# Example entries (delete once real ones exist):
 
-- file: x19/Fiat_X19_parts_catalog.pdf
+- file: x19/Bertone_X19_spare_parts_catalog_1986.pdf
   kind: pdf
-  origin: x19.com.au library (own hosting)
-  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_parts_catalog.pdf
-  condition: unknown
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Bertone_X19_spare_parts_catalog_1986.pdf
   hosting: host
 
-- file: x19/fiche-setA-sheet3.tif
-  kind: microfiche
-  origin: "Leighton's fiche set A, sheet 3 — scanned 2026-xx-xx by <service>"
-  fiche_set: A
-  fiche_sheet: 3
-  condition: good
+- file: x19/Bertone_wiring_diagram.PDF
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Bertone_wiring_diagram.PDF
+  hosting: host
+
+- file: x19/Fiat-X19_wiring_diagram_1981.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat-X19_wiring_diagram_1981.pdf
+  hosting: host
+
+- file: x19/Fiat-X19_wiring_diagram_australian_1979.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat-X19_wiring_diagram_australian_1979.pdf
   hosting: host
