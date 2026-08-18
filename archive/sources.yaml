@@ -51,3 +51,26 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1500_Timing_Belt_Replacement.pdf
   hosting: host
+- file: x19/Fiat_X19_1974_wiring.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1974_wiring.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_1978_Australian_X19Aust_Wiring_Diagram.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1978_Australian_X19Aust_Wiring_Diagram.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_1980_ownes_manual_australian.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1980_ownes_manual_australian.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_1982_service_manual.zip
+  kind: other
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1982_service_manual.zip
+  hosting: host
