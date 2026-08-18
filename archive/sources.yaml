@@ -143,3 +143,8 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Fiat_x19_Electrical_Diagnostic_Manual.pdf
   hosting: host
+- file: x19/Bertone_X19_1988_owners_manual.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Bertone_X19_1988_owners_manual.pdf
+  hosting: host
