@@ -74,3 +74,26 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Fiat_X19_1982_service_manual.zip
   hosting: host
+- file: x19/Fiat_X19_Cooling_Pipes.zip
+  kind: other
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Cooling_Pipes.zip
+  hosting: host
+
+- file: x19/Fiat_X19_Factory_parts_catalog.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Factory_parts_catalog.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_Rear_Caliper_Rebuild_rev4.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Rear_Caliper_Rebuild_rev4.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_Service_Manual_1974_to_1978_USA.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Service_Manual_1974_to_1978_USA.pdf
+  hosting: host
