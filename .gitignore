@@ -1,0 +1,7 @@
+archive/derived/*
+*.db
+__pycache__/
+.DS_Store
+
+# keep the derived/ directory itself in the tree
+!archive/derived/.gitkeep
