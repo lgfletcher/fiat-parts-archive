@@ -120,3 +120,26 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Fiat_X19_parts_catalog.pdf
   hosting: host
+- file: x19/Fiat_X19_parts_list_1974_to_1987.zip
+  kind: other
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_parts_list_1974_to_1987.zip
+  hosting: host
+
+- file: x19/Fiat_X19_re_pipe_Instructions.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_re_pipe_Instructions.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_service_package.zip
+  kind: other
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_service_package.zip
+  hosting: host
+
+- file: x19/Fiat_x19_Electrical_Diagnostic_Manual.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_x19_Electrical_Diagnostic_Manual.pdf
+  hosting: host
