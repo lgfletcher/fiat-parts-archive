@@ -97,3 +97,26 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Service_Manual_1974_to_1978_USA.pdf
   hosting: host
+- file: x19/Fiat_X19_Service_Manual_1979_to_1982_USA.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Service_Manual_1979_to_1982_USA.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_Speciale_Data_and_Characteristics_Service_Manual.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_Speciale_Data_and_Characteristics_Service_Manual.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_five_speed_Data_and_Characteristics_Service_Manual.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_five_speed_Data_and_Characteristics_Service_Manual.pdf
+  hosting: host
+
+- file: x19/Fiat_X19_parts_catalog.pdf
+  kind: pdf
+  origin: x19.com.au library — own site
+  url: https://x19.com.au/assets/manuals/X19/Fiat_X19_parts_catalog.pdf
+  hosting: host
