@@ -5,3 +5,4 @@ __pycache__/
 
 # keep the derived/ directory itself in the tree
 !archive/derived/.gitkeep
+*.db-journal

@@ -2,8 +2,8 @@ tav,title,page,hotspots,low_conf,tav_missing,title_missing,action
 p001,,pages/p001.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
 p010,,pages/p010.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
 p050,,pages/p050.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
-p005,,pages/p005.png,16,4,1,1,read tavola no. from corner; type title from header; check 4 low-conf numbers
-p053,,pages/p053.png,37,4,1,1,read tavola no. from corner; type title from header; check 4 low-conf numbers
+p005,,pages/p005.png,16,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
+p053,,pages/p053.png,37,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
 p069,,pages/p069.png,18,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
 p089,,pages/p089.png,21,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
 p049,,pages/p049.png,13,2,1,1,read tavola no. from corner; type title from header; check 2 low-conf numbers
@@ -24,24 +24,23 @@ p081,,pages/p081.png,2,0,1,1,read tavola no. from corner; type title from header
 p084,,pages/p084.png,12,0,1,1,read tavola no. from corner; type title from header
 0361,,pages/p011.png,0,0,0,1,type title from header; check: really no numbers?
 10115,COMANDI VARI,pages/p017.png,0,0,0,0,check: really no numbers?
-10107,DISTRIBUZIONE,pages/p014.png,25,7,0,0,check 7 low-conf numbers
-10106·2,,pages/p015.png,24,6,0,1,type title from header; check 6 low-conf numbers
-33102/1,COMANDO IDRAULICO FRENI,pages/p058.png,20,6,0,0,check 6 low-conf numbers
+10107,DISTRIBUZIONE,pages/p014.png,25,6,0,0,check 6 low-conf numbers
 55205,MOTORINO DI AVVIAMENTO 4198601,pages/p092.png,26,6,0,0,check 6 low-conf numbers
+10106·2,,pages/p015.png,24,5,0,1,type title from header; check 5 low-conf numbers
 10206,,pages/p022.png,28,5,0,1,type title from header; check 5 low-conf numbers
-38115,,pages/p071.png,16,5,0,1,type title from header; check 5 low-conf numbers
+33102/1,COMANDO IDRAULICO FRENI,pages/p058.png,20,5,0,0,check 5 low-conf numbers
 44300,,pages/p078.png,21,5,0,1,type title from header; check 5 low-conf numbers
 55101,,pages/p090.png,20,5,0,1,type title from header; check 5 low-conf numbers
 10105,,pages/p013.png,9,4,0,1,type title from header; check 4 low-conf numbers
 10201,,pages/p019.png,24,4,0,1,type title from header; check 4 low-conf numbers
-10254,,pages/p026.png,17,3,0,1,type title from header; check 3 low-conf numbers
+38115,,pages/p071.png,16,4,0,1,type title from header; check 4 low-conf numbers
 10409,,pages/p039.png,21,3,0,1,type title from header; check 3 low-conf numbers
 21201·4,CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI,pages/p048.png,25,3,0,0,check 3 low-conf numbers
 50102,RISCALDATORE 4290124,pages/p085.png,15,3,0,0,check 3 low-conf numbers
-50102·2,,pages/p087.png,15,3,0,1,type title from header; check 3 low-conf numbers
 10101,BASAMENTO E TESTA CILINDRI,pages/p006.png,31,2,0,0,check 2 low-conf numbers
 10102,COPPA E COPERCHI BASAMENTO,pages/p008.png,23,2,0,0,check 2 low-conf numbers
 10205,FILTRO ARIA 4297948,pages/p021.png,5,2,0,0,check 2 low-conf numbers
+10254,,pages/p026.png,17,2,0,1,type title from header; check 2 low-conf numbers
 21207,COMANDI ESTERNI CAMBIO DI VELOCITA,pages/p052.png,18,2,0,0,check 2 low-conf numbers
 33101,,pages/p056.png,11,2,0,1,type title from header; check 2 low-conf numbers
 33123,FRENI RUOTE POSTERIORI,pages/p064.png,9,2,0,0,check 2 low-conf numbers
@@ -61,6 +60,7 @@ p084,,pages/p084.png,12,0,1,1,read tavola no. from corner; type title from heade
 41201,COMANDO STERZO,pages/p070.png,19,1,0,0,check 1 low-conf numbers
 41202,SCATOLA STERZO 4290732,pages/p072.png,21,1,0,0,check 1 low-conf numbers
 44302,I VALE PER TUTTI I MOD.BASE,pages/p076.png,22,1,0,0,check 1 low-conf numbers
+50102·2,,pages/p087.png,15,1,0,1,type title from header; check 1 low-conf numbers
 95103,DISTRIBUTORE DI ACCENSIONE 4286130 (MARELLI),pages/p091.png,11,1,0,0,check 1 low-conf numbers
 55301,GENERAZIONE DI CORRENTE,pages/p095.png,20,1,0,0,check 1 low-conf numbers
 55303,,pages/p097.png,14,1,0,1,type title from header; check 1 low-conf numbers
