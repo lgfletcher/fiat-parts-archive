@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""
+Stage 6: export the static browsable site from fiat.db.
+
+    python3 pipeline/export_site.py --db fiat.db \
+        --pages archive/derived/factory_catalog/pages --out site_build
+
+Output is self-contained: index.html + data.js + plates/*.jpg.
+Works from file:// (no fetch), any static host, or a zip.
+"""
+import argparse, json, sqlite3
+from pathlib import Path
+from PIL import Image
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--db", default="fiat.db")
+    ap.add_argument("--pages", required=True)
+    ap.add_argument("--out", default="site_build")
+    ap.add_argument("--jpeg-quality", type=int, default=80)
+    args = ap.parse_args()
+
+    out = Path(args.out); (out / "plates").mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(args.db); db.row_factory = sqlite3.Row
+
+    cats, plates = {}, {}
+    for r in db.execute("""
+        SELECT pl.id, pl.tav_code, pl.title, pl.width_px, pl.height_px, pl.dzi_path,
+               c.slug AS cslug, c.name AS cname, c.gruppo_code
+        FROM plate pl LEFT JOIN category c ON c.id = pl.category_id
+        ORDER BY pl.tav_code"""):
+        src = Path(args.pages) / Path(r["dzi_path"]).name
+        jpg = f"plates/{Path(r['dzi_path']).stem}.jpg"
+        if src.exists() and not (out / jpg).exists():
+            Image.open(src).convert("L").save(out / jpg, quality=args.jpeg_quality, optimize=True)
+        cslug = r["cslug"] or "other"
+        cats.setdefault(cslug, {"slug": cslug,
+                                "name": r["cname"] or f"Gruppo {r['tav_code'][:2]}",
+                                "gruppo": r["gruppo_code"] or r["tav_code"][:2],
+                                "plates": []})
+        cats[cslug]["plates"].append(r["tav_code"])
+        parts = [{"pn": h["callout"], "x": h["x"], "y": h["y"], "r": h["r"],
+                  "conf": None} for h in
+                 db.execute("SELECT callout,x,y,r FROM hotspot WHERE plate_id=?", (r["id"],))]
+        confs = {u["callout"]: u["applicability"] for u in
+                 db.execute("SELECT callout,applicability FROM part_usage WHERE plate_id=?", (r["id"],))}
+        for p in parts:
+            a = confs.get(p["pn"], "")
+            if a and a.startswith("ocr_conf="):
+                p["conf"] = float(a.split("=")[1])
+        plates[r["tav_code"]] = {"tav": r["tav_code"], "title": r["title"],
+                                 "img": jpg, "w": r["width_px"], "h": r["height_px"],
+                                 "cat": cslug, "parts": parts}
+
+    n_parts = db.execute("SELECT COUNT(*) FROM part").fetchone()[0]
+    n_usage = db.execute("SELECT COUNT(*) FROM part_usage").fetchone()[0]
+    shared = [dict(r) for r in db.execute(
+        "SELECT part_no, n_vehicles, vehicles FROM v_shared_parts LIMIT 50")]
+    multi = [dict(r) for r in db.execute("""
+        SELECT p.part_no, COUNT(DISTINCT pu.plate_id) AS n
+        FROM part p JOIN part_usage pu ON pu.part_id=p.id
+        GROUP BY p.id HAVING n>1 ORDER BY n DESC LIMIT 200""")]
+
+    data = {"categories": sorted(cats.values(), key=lambda c: c["gruppo"] or "99"),
+            "plates": plates,
+            "stats": {"plates": len(plates), "parts": n_parts, "usages": n_usage,
+                      "multi_plate_parts": len(multi)},
+            "generated": "by pipeline/export_site.py — all OCR data UNVERIFIED"}
+    (out / "data.js").write_text("window.ARCHIVE=" + json.dumps(data) + ";")
+
+    (out / "index.html").write_text(TEMPLATE)
+    print("exported", len(plates), "plates →", out)
+
+TEMPLATE = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fiat Classic Parts Archive — X1/9 Factory Catalog (v3)</title>
+<style>
+  :root{--bg:#1c1f26;--panel:#252932;--panel2:#2c313c;--line:#3a4150;--txt:#e8e6df;
+    --dim:#9aa0ac;--accent:#e8b84b;--accent2:#7fb4d8;--ok:#8fc98f;--warn:#d89a7f;}
+  *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+  body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt);display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:16px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  h1{font-size:15px;font-weight:600;letter-spacing:.04em}
+  h1 .v{color:var(--accent);font-size:11px;border:1px solid var(--accent);border-radius:4px;padding:1px 6px;margin-left:8px}
+  #search{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 12px;font-size:13px;width:260px}
+  #app{display:flex;flex:1;min-height:0}
+  nav{width:250px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:8px 0}
+  .cat{padding:8px 14px 4px;font-size:11px;letter-spacing:.1em;color:var(--accent);cursor:pointer}
+  .cat .n{color:var(--dim);font-size:10px;letter-spacing:0}
+  .pl{padding:4px 14px 4px 22px;font-size:12px;color:var(--txt);cursor:pointer;display:flex;gap:8px;justify-content:space-between}
+  .pl:hover{background:var(--panel2)}
+  .pl.active{background:var(--panel2);color:var(--accent);border-left:3px solid var(--accent);padding-left:19px}
+  .pl .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pl .np{color:var(--dim);font-size:10px}
+  #viewerwrap{flex:1;display:flex;flex-direction:column;min-width:0}
+  #platebar{display:flex;align-items:baseline;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+  #platebar .tav{color:var(--accent);font-weight:600;font-size:13px}
+  #platebar .ti{font-size:13px}
+  #platebar .src{margin-left:auto;font-size:11px;color:var(--dim)}
+  #viewer{flex:1;position:relative;overflow:hidden;background:#14161b;cursor:grab}
+  #viewer.dragging{cursor:grabbing}
+  #stage{position:absolute;top:0;left:0;transform-origin:0 0}
+  #stage img{display:block;box-shadow:0 6px 30px rgba(0,0,0,.5)}
+  .hs{position:absolute;border:2.5px solid transparent;border-radius:8px;cursor:pointer;transition:border-color .12s, background .12s}
+  .hs:hover{border-color:rgba(232,150,50,.85);background:rgba(232,184,75,.12)}
+  .hs.sel{border-color:#e87a2e;background:rgba(232,150,50,.22);box-shadow:0 0 0 4px rgba(232,122,46,.25)}
+  .zoomctl{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
+  .zoomctl button{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:16px;cursor:pointer}
+  .hint{position:absolute;left:14px;bottom:12px;font-size:11px;color:var(--dim);background:rgba(28,31,38,.8);padding:4px 10px;border-radius:6px;z-index:5}
+  aside{width:330px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  aside .pt{padding:10px 14px 6px;font-size:11px;letter-spacing:.12em;color:var(--dim)}
+  #parts{flex:1;overflow-y:auto}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{position:sticky;top:0;background:var(--panel2);text-align:left;padding:6px 10px;font-size:10.5px;color:var(--dim)}
+  td{padding:6px 10px;border-bottom:1px solid #2e3340}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#2c313c}
+  tbody tr.sel{background:#39383043;outline:1px solid var(--accent)}
+  td.pn{font-family:ui-monospace,Menlo,monospace;color:var(--accent2)}
+  td.cf{color:var(--dim);font-size:11px}
+  td.cf.lo{color:var(--warn)}
+  .also{display:inline-block;margin-left:6px;font-size:10px;color:#1c1f26;background:var(--accent2);border-radius:4px;padding:0 5px;cursor:pointer}
+  footer{padding:6px 16px;background:var(--panel);border-top:1px solid var(--line);font-size:11px;color:var(--dim);display:flex;gap:16px;flex-wrap:wrap}
+  footer b{color:var(--txt)}
+  #results{position:absolute;top:52px;right:18px;width:460px;max-height:65vh;overflow-y:auto;background:var(--panel);border:1px solid var(--accent);border-radius:8px;z-index:20;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  #results .r{padding:8px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:12.5px}
+  #results .r:hover{background:var(--panel2)}
+  #results .pn{font-family:ui-monospace,monospace;color:var(--accent2)}
+  #results .where{color:var(--dim);font-size:11px;margin-top:2px}
+  #results .none{padding:12px 14px;color:var(--dim)}
+</style>
+</head>
+<body>
+<header>
+  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3 — FULL CATALOG, UNVERIFIED OCR</span></h1>
+  <input id="search" type="search" placeholder="Search part number across all plates…" autocomplete="off">
+</header>
+<div id="app">
+  <nav id="nav"></nav>
+  <div id="viewerwrap">
+    <div id="platebar">
+      <span class="tav" id="pb-tav"></span><span class="ti" id="pb-title"></span>
+      <span class="src" id="pb-src"></span>
+    </div>
+    <div id="viewer">
+      <div class="zoomctl"><button id="z-in">+</button><button id="z-out">−</button><button id="z-fit" style="font-size:12px">fit</button></div>
+      <div id="stage"></div>
+      <div class="hint">drag to pan · scroll to zoom · click part numbers on the drawing</div>
+    </div>
+  </div>
+  <aside>
+    <div class="pt">PART NUMBERS FOUND ON THIS PLATE (OCR)</div>
+    <div id="parts"></div>
+  </aside>
+</div>
+<div id="results"></div>
+<footer id="foot"></footer>
+<script src="data.js"></script>
+<script>
+const D=window.ARCHIVE, plates=D.plates;
+const stage=document.getElementById('stage'), viewer=document.getElementById('viewer');
+let cur=null, view={x:0,y:0,s:1};
+
+/* index: part -> plates (cross-links, derived) */
+const where={};
+Object.values(plates).forEach(p=>p.parts.forEach(h=>{(where[h.pn]=where[h.pn]||[]).push(p.tav);}));
+
+/* nav */
+const nav=document.getElementById('nav');
+D.categories.forEach(c=>{
+  const h=document.createElement('div');h.className='cat';
+  h.innerHTML=`${c.name} <span class="n">· Gr.${c.gruppo} · ${c.plates.length} plates</span>`;
+  nav.appendChild(h);
+  const box=document.createElement('div');
+  c.plates.forEach(tv=>{
+    const p=plates[tv]; if(!p) return;
+    const d=document.createElement('div');d.className='pl';d.dataset.tav=tv;
+    d.innerHTML=`<span class="t">${tv}${p.title?' — '+p.title.toLowerCase():''}</span><span class="np">${p.parts.length}</span>`;
+    d.onclick=()=>load(tv);
+    box.appendChild(d);
+  });
+  nav.appendChild(box);
+  h.onclick=()=>{box.style.display=box.style.display==='none'?'':'none';};
+});
+
+function apply(){stage.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;}
+function fit(){if(!cur)return;const r=viewer.getBoundingClientRect();
+  view.s=Math.min(r.width/cur.w,r.height/cur.h)*.97;
+  view.x=(r.width-cur.w*view.s)/2;view.y=(r.height-cur.h*view.s)/2;apply();}
+function zoomTo(px,py,s){const r=viewer.getBoundingClientRect();view.s=s;view.x=r.width/2-px*s;view.y=r.height/2-py*s;apply();}
+
+function load(tav,selPn){
+  cur=plates[tav]; if(!cur) return;
+  document.querySelectorAll('.pl').forEach(e=>e.classList.toggle('active',e.dataset.tav===tav));
+  document.getElementById('pb-tav').textContent='SGR. '+tav;
+  document.getElementById('pb-title').textContent=cur.title||'';
+  document.getElementById('pb-src').textContent='Factory parts catalog · '+cur.img.replace('plates/','');
+  stage.style.width=cur.w+'px';stage.style.height=cur.h+'px';
+  stage.innerHTML=`<img src="${cur.img}" width="${cur.w}" height="${cur.h}">`;
+  cur.parts.forEach(h=>{
+    const d=document.createElement('div');d.className='hs';d.dataset.pn=h.pn;
+    const w=Math.max(h.r*cur.w,120), ht=44;
+    d.style.cssText=`left:${h.x*cur.w-w/2-14}px;top:${h.y*cur.h-ht/2}px;width:${w+28}px;height:${ht}px`;
+    d.onclick=()=>select(h.pn,false);
+    stage.appendChild(d);
+  });
+  const tbl=document.createElement('table');
+  tbl.innerHTML='<thead><tr><th>PART NO.</th><th>ALSO ON</th><th>OCR CONF</th></tr></thead>';
+  const tb=document.createElement('tbody');
+  cur.parts.slice().sort((a,b)=>a.pn<b.pn?-1:1).forEach(h=>{
+    const tr=document.createElement('tr');tr.dataset.pn=h.pn;
+    const others=(where[h.pn]||[]).filter(t=>t!==tav);
+    tr.innerHTML=`<td class="pn">${h.pn}</td>
+      <td>${others.slice(0,3).map(t=>`<span class="also" data-t="${t}">${t}</span>`).join('')}${others.length>3?'…':''}</td>
+      <td class="cf ${h.conf&&h.conf<55?'lo':''}">${h.conf?Math.round(h.conf)+'%':''}</td>`;
+    tr.onclick=e=>{
+      const a=e.target.closest('.also');
+      if(a){load(a.dataset.t,h.pn);return;}
+      select(h.pn,true);
+    };
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+  const pp=document.getElementById('parts');pp.innerHTML='';pp.appendChild(tbl);
+  fit();
+  if(selPn) setTimeout(()=>select(selPn,true),60);
+}
+function select(pn,zoom){
+  document.querySelectorAll('.hs').forEach(h=>h.classList.toggle('sel',h.dataset.pn===pn));
+  document.querySelectorAll('tbody tr').forEach(tr=>{
+    const on=tr.dataset.pn===pn;tr.classList.toggle('sel',on);
+    if(on)tr.scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+  const h=cur.parts.find(x=>x.pn===pn);
+  if(zoom&&h)zoomTo(h.x*cur.w,h.y*cur.h,Math.max(view.s,1.0));
+}
+
+/* pan/zoom */
+viewer.addEventListener('wheel',e=>{e.preventDefault();
+  const r=viewer.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  const f=e.deltaY<0?1.18:1/1.18,s2=Math.min(6,Math.max(.06,view.s*f));
+  view.x=mx-(mx-view.x)*(s2/view.s);view.y=my-(my-view.y)*(s2/view.s);view.s=s2;apply();
+},{passive:false});
+let drag=null;
+viewer.addEventListener('mousedown',e=>{if(e.target.closest('.zoomctl'))return;
+  drag={mx:e.clientX,my:e.clientY,x:view.x,y:view.y};viewer.classList.add('dragging');});
+window.addEventListener('mousemove',e=>{if(!drag)return;
+  view.x=drag.x+(e.clientX-drag.mx);view.y=drag.y+(e.clientY-drag.my);apply();});
+window.addEventListener('mouseup',()=>{drag=null;viewer.classList.remove('dragging');});
+document.getElementById('z-in').onclick=()=>{const r=viewer.getBoundingClientRect();zoomTo((r.width/2-view.x)/view.s,(r.height/2-view.y)/view.s,Math.min(6,view.s*1.35));};
+document.getElementById('z-out').onclick=()=>{const r=viewer.getBoundingClientRect();zoomTo((r.width/2-view.x)/view.s,(r.height/2-view.y)/view.s,Math.max(.06,view.s/1.35));};
+document.getElementById('z-fit').onclick=fit;
+window.addEventListener('resize',fit);
+
+/* search */
+const searchEl=document.getElementById('search'),resultsEl=document.getElementById('results');
+searchEl.addEventListener('input',()=>{
+  const q=searchEl.value.trim();
+  if(q.length<3){resultsEl.style.display='none';return;}
+  const hits=Object.keys(where).filter(pn=>pn.includes(q)).slice(0,40);
+  resultsEl.innerHTML=hits.length
+    ?hits.map(pn=>`<div class="r" data-pn="${pn}" data-t="${where[pn][0]}">
+        <span class="pn">${pn}</span>
+        <div class="where">on ${where[pn].length} plate(s): ${where[pn].slice(0,6).join(', ')}${where[pn].length>6?'…':''}</div></div>`).join('')
+    :'<div class="none">No part number matching. (OCR-only data — verification pending.)</div>';
+  resultsEl.style.display='block';
+});
+resultsEl.addEventListener('click',e=>{
+  const r=e.target.closest('.r');if(!r)return;
+  resultsEl.style.display='none';searchEl.value='';
+  load(r.dataset.t,r.dataset.pn);
+});
+document.addEventListener('click',e=>{if(!e.target.closest('#results')&&e.target!==searchEl)resultsEl.style.display='none';});
+
+document.getElementById('foot').innerHTML=
+  `<span><b>${D.stats.plates}</b> plates · <b>${D.stats.parts}</b> distinct part numbers · <b>${D.stats.usages}</b> placements · <b>${D.stats.multi_plate_parts}</b> parts appear on 2+ plates (auto cross-links)</span>
+   <span style="color:var(--warn)">All data is raw OCR — unverified. Confidence shown per hotspot.</span>`;
+
+/* start on the first brakes plate if present, else first plate */
+load(plates['33125']?'33125':Object.keys(plates)[0]);
+</script>
+</body>
+</html>"""
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,122 @@
+tav,title,page,hotspots,low_conf,tav_missing,title_missing,action
+p001,,pages/p001.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
+p010,,pages/p010.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
+p050,,pages/p050.png,0,0,1,1,read tavola no. from corner; type title from header; check: really no numbers?
+p005,,pages/p005.png,16,4,1,1,read tavola no. from corner; type title from header; check 4 low-conf numbers
+p053,,pages/p053.png,37,4,1,1,read tavola no. from corner; type title from header; check 4 low-conf numbers
+p069,,pages/p069.png,18,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
+p089,,pages/p089.png,21,3,1,1,read tavola no. from corner; type title from header; check 3 low-conf numbers
+p049,,pages/p049.png,13,2,1,1,read tavola no. from corner; type title from header; check 2 low-conf numbers
+p060,,pages/p060.png,19,2,1,1,read tavola no. from corner; type title from header; check 2 low-conf numbers
+p079,,pages/p079.png,22,2,1,1,read tavola no. from corner; type title from header; check 2 low-conf numbers
+p096,,pages/p096.png,23,2,1,1,read tavola no. from corner; type title from header; check 2 low-conf numbers
+p033,,pages/p033.png,18,1,1,1,read tavola no. from corner; type title from header; check 1 low-conf numbers
+p059,,pages/p059.png,14,1,1,1,read tavola no. from corner; type title from header; check 1 low-conf numbers
+p002,,pages/p002.png,3,0,1,1,read tavola no. from corner; type title from header
+p009,,pages/p009.png,8,0,1,1,read tavola no. from corner; type title from header
+p028,,pages/p028.png,16,0,1,1,read tavola no. from corner; type title from header
+p034,,pages/p034.png,26,0,1,1,read tavola no. from corner; type title from header
+p041,,pages/p041.png,14,0,1,1,read tavola no. from corner; type title from header
+p051,,pages/p051.png,1,0,1,1,read tavola no. from corner; type title from header
+p073,,pages/p073.png,12,0,1,1,read tavola no. from corner; type title from header
+p075,,pages/p075.png,1,0,1,1,read tavola no. from corner; type title from header
+p081,,pages/p081.png,2,0,1,1,read tavola no. from corner; type title from header
+p084,,pages/p084.png,12,0,1,1,read tavola no. from corner; type title from header
+0361,,pages/p011.png,0,0,0,1,type title from header; check: really no numbers?
+10115,COMANDI VARI,pages/p017.png,0,0,0,0,check: really no numbers?
+10107,DISTRIBUZIONE,pages/p014.png,25,7,0,0,check 7 low-conf numbers
+10106·2,,pages/p015.png,24,6,0,1,type title from header; check 6 low-conf numbers
+33102/1,COMANDO IDRAULICO FRENI,pages/p058.png,20,6,0,0,check 6 low-conf numbers
+55205,MOTORINO DI AVVIAMENTO 4198601,pages/p092.png,26,6,0,0,check 6 low-conf numbers
+10206,,pages/p022.png,28,5,0,1,type title from header; check 5 low-conf numbers
+38115,,pages/p071.png,16,5,0,1,type title from header; check 5 low-conf numbers
+44300,,pages/p078.png,21,5,0,1,type title from header; check 5 low-conf numbers
+55101,,pages/p090.png,20,5,0,1,type title from header; check 5 low-conf numbers
+10105,,pages/p013.png,9,4,0,1,type title from header; check 4 low-conf numbers
+10201,,pages/p019.png,24,4,0,1,type title from header; check 4 low-conf numbers
+10254,,pages/p026.png,17,3,0,1,type title from header; check 3 low-conf numbers
+10409,,pages/p039.png,21,3,0,1,type title from header; check 3 low-conf numbers
+21201·4,CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI,pages/p048.png,25,3,0,0,check 3 low-conf numbers
+50102,RISCALDATORE 4290124,pages/p085.png,15,3,0,0,check 3 low-conf numbers
+50102·2,,pages/p087.png,15,3,0,1,type title from header; check 3 low-conf numbers
+10101,BASAMENTO E TESTA CILINDRI,pages/p006.png,31,2,0,0,check 2 low-conf numbers
+10102,COPPA E COPERCHI BASAMENTO,pages/p008.png,23,2,0,0,check 2 low-conf numbers
+10205,FILTRO ARIA 4297948,pages/p021.png,5,2,0,0,check 2 low-conf numbers
+21207,COMANDI ESTERNI CAMBIO DI VELOCITA,pages/p052.png,18,2,0,0,check 2 low-conf numbers
+33101,,pages/p056.png,11,2,0,1,type title from header; check 2 low-conf numbers
+33123,FRENI RUOTE POSTERIORI,pages/p064.png,9,2,0,0,check 2 low-conf numbers
+55405·2,PROIETTORE 4329910,pages/p105.png,10,2,0,0,check 2 low-conf numbers
+55515,ACCESSORI VARI,pages/p119.png,19,2,0,0,check 2 low-conf numbers
+10107·2,,pages/p016.png,47,1,0,1,type title from header; check 1 low-conf numbers
+10221,,pages/p024.png,22,1,0,1,type title from header; check 1 low-conf numbers
+10256,TUBAZIONE DI SCARICO,pages/p027.png,12,1,0,0,check 1 low-conf numbers
+10401,RADIATORE,pages/p030.png,9,1,0,0,check 1 low-conf numbers
+10302,,pages/p031.png,12,1,0,1,type title from header; check 1 low-conf numbers
+18101,COMANDO DISINNESTO FRIZIONE,pages/p038.png,6,1,0,0,check 1 low-conf numbers
+18102,COMANDO IDRAULICO DISINNESTO FRIZIONE,pages/p040.png,22,1,0,0,check 1 low-conf numbers
+18103,,pages/p043.png,11,1,0,1,type title from header; check 1 low-conf numbers
+21204,,pages/p054.png,5,1,0,1,type title from header; check 1 low-conf numbers
+27401,SEMIALBERI DIFFERENZIALE,pages/p055.png,22,1,0,0,check 1 low-conf numbers
+33139,COMANDO A MANO FRENI,pages/p068.png,12,1,0,0,check 1 low-conf numbers
+41201,COMANDO STERZO,pages/p070.png,19,1,0,0,check 1 low-conf numbers
+41202,SCATOLA STERZO 4290732,pages/p072.png,21,1,0,0,check 1 low-conf numbers
+44302,I VALE PER TUTTI I MOD.BASE,pages/p076.png,22,1,0,0,check 1 low-conf numbers
+95103,DISTRIBUTORE DI ACCENSIONE 4286130 (MARELLI),pages/p091.png,11,1,0,0,check 1 low-conf numbers
+55301,GENERAZIONE DI CORRENTE,pages/p095.png,20,1,0,0,check 1 low-conf numbers
+55303,,pages/p097.png,14,1,0,1,type title from header; check 1 low-conf numbers
+p104,,pages/p104.png,9,1,0,1,type title from header; check 1 low-conf numbers
+p106,,pages/p106.png,12,1,0,1,type title from header; check 1 low-conf numbers
+55420/1,,pages/p110.png,8,1,0,1,type title from header; check 1 low-conf numbers
+99001,SEGNALAZIONE DI AVVISO E DI MANOVRA,pages/p115.png,10,1,0,0,check 1 low-conf numbers
+55510,SEGNALAZIONI DI FUNZIONAMENTO,pages/p116.png,4,1,0,0,check 1 low-conf numbers
+55516,,pages/p120.png,14,1,0,1,type title from header; check 1 low-conf numbers
+10000,MOTORE,pages/p003.png,2,0,0,0,spot-check only
+10002,SOSPENSIONI GRUPPO MOTOPROPULSORE,pages/p004.png,11,0,0,0,spot-check only
+10101·2,,pages/p007.png,15,0,0,1,type title from header
+10106,,pages/p012.png,21,0,0,1,type title from header
+10202,POMPA ALIMENTAZIONE E TUBAZIONI,pages/p018.png,12,0,0,0,spot-check only
+10204,,pages/p020.png,11,0,0,1,type title from header
+10206·2,CARBURATORE 4297950(WEBER),pages/p023.png,30,0,0,0,spot-check only
+10221·2,COMANDI ACCELERATORE E CARBURATORE,pages/p025.png,6,0,0,0,spot-check only
+10301,LUBRIFICAZIONE,pages/p029.png,27,0,0,0,spot-check only
+10402,,pages/p032.png,16,0,0,1,type title from header
+10402·2,"POMPA ACQUA E TUBAZIONI ,",pages/p035.png,6,0,0,0,spot-check only
+1974,,pages/p036.png,16,0,0,1,type title from header
+10403,,pages/p037.png,17,0,0,1,type title from header
+18104,CILINDRO COMANDO DISINNESTO 4300686,pages/p042.png,7,0,0,0,spot-check only
+21201,CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI,pages/p044.png,12,0,0,0,spot-check only
+18105,,pages/p045.png,5,0,0,1,type title from header
+21201·2,CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI .,pages/p046.png,18,0,0,0,spot-check only
+21201·3,,pages/p047.png,24,0,0,1,type title from header
+33102,COMANDO IDRAULICO FRENI |,pages/p057.png,14,0,0,0,spot-check only
+33106,CILINDRO MAESTRO 4258745,pages/p061.png,14,0,0,0,spot-check only
+33119,PINZA ANTERIORE DESTRA 4269407,pages/p062.png,7,0,0,0,spot-check only
+33117,,pages/p063.png,12,0,0,1,type title from header
+33119/1,,pages/p065.png,9,0,0,1,type title from header
+33125,PINZA POSTERIORE SINISTRA 4300927,pages/p066.png,4,0,0,0,spot-check only
+33125·2,,pages/p067.png,6,0,0,1,type title from header
+44301,SOSPENSIONE ANTERIORE,pages/p074.png,21,0,0,0,spot-check only
+44302·2,,pages/p077.png,9,0,0,1,type title from header
+44310/1,,pages/p080.png,3,0,0,1,type title from header
+30101,RISCALDAMENTO E VENTILAZIONE,pages/p082.png,21,0,0,0,spot-check only
+44316,,pages/p083.png,19,0,0,1,type title from header
+90103,COMANDI RISCALDAMENTO E VENTILAZIONE,pages/p086.png,15,0,0,0,spot-check only
+90107,LAVACRISTALLO,pages/p088.png,3,0,0,0,spot-check only
+55208,,pages/p093.png,7,0,0,1,type title from header
+5590,,pages/p094.png,11,0,0,1,type title from header
+99401,ILLUMINAZIONE ESTERNA ED INTERNA,pages/p098.png,24,0,0,0,spot-check only
+55401,,pages/p099.png,6,0,0,1,type title from header
+p100,,pages/p100.png,12,0,0,1,type title from header
+90409,PROIETTORE 4273537,pages/p101.png,10,0,0,0,spot-check only
+55405/1,,pages/p102.png,8,0,0,1,type title from header
+55405,PROIETTORE 4285859 |,pages/p103.png,9,0,0,0,spot-check only
+55405·3,PROIETTORE 4329944,pages/p107.png,7,0,0,0,spot-check only
+55405/7,,pages/p108.png,8,0,0,1,type title from header
+99420,FANALE ANTERIORE 4271355,pages/p109.png,8,0,0,0,spot-check only
+00460/2,FANALE ANTERIORE 4292077 |,pages/p111.png,8,0,0,0,spot-check only
+p112,,pages/p112.png,7,0,0,1,type title from header
+55423,FANALE POSTERIORE 4271522,pages/p113.png,10,0,0,0,spot-check only
+35423,,pages/p114.png,10,0,0,1,type title from header
+p117,,pages/p117.png,12,0,0,1,type title from header
+p118,,pages/p118.png,8,0,0,1,type title from header
+68101,ATTREZZI,pages/p121.png,9,0,0,0,spot-check only
