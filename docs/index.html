@@ -58,11 +58,32 @@
   #results .pn{font-family:ui-monospace,monospace;color:var(--accent2)}
   #results .where{color:var(--dim);font-size:11px;margin-top:2px}
   #results .none{padding:12px 14px;color:var(--dim)}
+  /* ---- edit mode ---- */
+  .ebtn{background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:5px 12px;font-size:12.5px;cursor:pointer}
+  .ebtn.on{background:var(--accent);color:#1c1f26;border-color:var(--accent);font-weight:600}
+  .ebtn.warn{color:var(--warn)}
+  body.editing .hs{border-color:rgba(127,180,216,.5)}
+  body.editing .hs:hover{border-color:var(--accent2)}
+  .hs.verified{border-color:rgba(143,201,143,.55)}
+  .hs .grip{display:none;position:absolute;right:-7px;bottom:-7px;width:14px;height:14px;background:var(--accent);border-radius:3px;cursor:nwse-resize}
+  body.editing .hs.sel .grip{display:block}
+  #edpop{position:absolute;z-index:30;background:#101216;border:1px solid var(--accent);border-radius:8px;padding:10px;display:none;box-shadow:0 10px 40px rgba(0,0,0,.6);width:230px}
+  #edpop input[type=text]{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--accent2);font-family:ui-monospace,monospace;font-size:14px;padding:5px 8px;border-radius:5px}
+  #edpop .row{display:flex;gap:8px;margin-top:8px;align-items:center;font-size:12px;color:var(--dim)}
+  #edpop button{flex:1;padding:5px 0;border-radius:5px;border:1px solid var(--line);background:var(--panel2);color:var(--txt);cursor:pointer;font-size:12px}
+  #edpop button.pri{background:var(--accent);color:#1c1f26;border-color:var(--accent);font-weight:600}
+  #edpop button.del{color:var(--warn)}
+  #addrect{position:absolute;border:2px dashed var(--accent);background:rgba(232,184,75,.12);display:none;pointer-events:none}
+  .rotnote{position:absolute;top:14px;left:14px;z-index:6;background:rgba(216,154,127,.15);border:1px solid var(--warn);color:var(--warn);font-size:11.5px;padding:5px 10px;border-radius:6px;display:none}
 </style>
 </head>
 <body>
 <header>
-  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3 — FULL CATALOG, UNVERIFIED OCR</span></h1>
+  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.1 — EDITABLE</span></h1>
+  <button class="ebtn" id="ed-toggle" title="Toggle edit mode">✎ Edit</button>
+  <button class="ebtn" id="ed-add" style="display:none" title="Drag a box on the drawing, then type the part number">＋ Add box</button>
+  <button class="ebtn" id="ed-rot" style="display:none" title="Flag this page as rotated; fixed permanently at next rebuild">↻ Rotate</button>
+  <button class="ebtn" id="ed-export" style="display:none" title="Download your edits as edits.json">⬇ Export <span id="ed-count">0</span> edits</button>
   <input id="search" type="search" placeholder="Search part number across all plates…" autocomplete="off">
 </header>
 <div id="app">
@@ -75,7 +96,9 @@
     <div id="viewer">
       <div class="zoomctl"><button id="z-in">+</button><button id="z-out">−</button><button id="z-fit" style="font-size:12px">fit</button></div>
       <div id="stage"></div>
-      <div class="hint">drag to pan · scroll to zoom · click part numbers on the drawing</div>
+      <div class="rotnote" id="rotnote"></div>
+      <div id="edpop"></div>
+      <div class="hint" id="hint">drag to pan · scroll to zoom · click part numbers on the drawing</div>
     </div>
   </div>
   <aside>
@@ -91,9 +114,39 @@ const D=window.ARCHIVE, plates=D.plates;
 const stage=document.getElementById('stage'), viewer=document.getElementById('viewer');
 let cur=null, view={x:0,y:0,s:1};
 
-/* index: part -> plates (cross-links, derived) */
+/* ---------- local edits (browser-persistent, exportable) ---------- */
+let ED={};
+try{ED=JSON.parse(localStorage.getItem('fiat_edits')||'{}');}catch(e){ED={};}
+function edFor(tav){return ED[tav]=ED[tav]||{rotate:0,hs:{}};}
+function edSave(){localStorage.setItem('fiat_edits',JSON.stringify(ED));edCount();}
+function edCount(){
+  let n=0;Object.values(ED).forEach(e=>{n+=Object.keys(e.hs||{}).length+(e.rotate?1:0);});
+  const el=document.getElementById('ed-count');if(el)el.textContent=n;
+  return n;
+}
+/* working hotspot list for a plate = base OCR data + local edits */
+function workingParts(p){
+  const e=ED[p.tav]||{hs:{}};
+  const out=[];
+  p.parts.forEach((h,i)=>{
+    const id='b'+i, ov=e.hs[id];
+    if(ov&&ov.del)return;
+    out.push(Object.assign({id, pn:h.pn, x:h.x, y:h.y,
+      w:h.w||Math.max(h.r*2,0.05), h:h.hh||0.028, conf:h.conf, verified:!!h.v}, ov||{}));
+  });
+  Object.entries(e.hs).forEach(([id,ov])=>{
+    if(id.startsWith('n')&&!ov.del) out.push(Object.assign({id,conf:null,verified:false},ov));
+  });
+  return out;
+}
+
+/* index: part -> plates (cross-links, derived; includes local edits) */
 const where={};
-Object.values(plates).forEach(p=>p.parts.forEach(h=>{(where[h.pn]=where[h.pn]||[]).push(p.tav);}));
+function rebuildWhere(){
+  Object.keys(where).forEach(k=>delete where[k]);
+  Object.values(plates).forEach(p=>workingParts(p).forEach(h=>{(where[h.pn]=where[h.pn]||[]).push(p.tav);}));
+}
+rebuildWhere();
 
 /* nav */
 const nav=document.getElementById('nav');
@@ -119,49 +172,66 @@ function fit(){if(!cur)return;const r=viewer.getBoundingClientRect();
   view.x=(r.width-cur.w*view.s)/2;view.y=(r.height-cur.h*view.s)/2;apply();}
 function zoomTo(px,py,s){const r=viewer.getBoundingClientRect();view.s=s;view.x=r.width/2-px*s;view.y=r.height/2-py*s;apply();}
 
+let curParts=[];
 function load(tav,selPn){
   cur=plates[tav]; if(!cur) return;
+  closePop();
   document.querySelectorAll('.pl').forEach(e=>e.classList.toggle('active',e.dataset.tav===tav));
   document.getElementById('pb-tav').textContent='SGR. '+tav;
   document.getElementById('pb-title').textContent=cur.title||'';
   document.getElementById('pb-src').textContent='Factory parts catalog · '+cur.img.replace('plates/','');
   stage.style.width=cur.w+'px';stage.style.height=cur.h+'px';
-  stage.innerHTML=`<img src="${cur.img}" width="${cur.w}" height="${cur.h}">`;
-  cur.parts.forEach(h=>{
-    const d=document.createElement('div');d.className='hs';d.dataset.pn=h.pn;
-    const w=Math.max(h.r*cur.w,120), ht=44;
-    d.style.cssText=`left:${h.x*cur.w-w/2-14}px;top:${h.y*cur.h-ht/2}px;width:${w+28}px;height:${ht}px`;
-    d.onclick=()=>select(h.pn,false);
-    stage.appendChild(d);
-  });
+  const rot=(ED[tav]&&ED[tav].rotate)||0;
+  stage.innerHTML=`<img src="${cur.img}" width="${cur.w}" height="${cur.h}" style="${rot?`transform:rotate(${rot}deg)`:''}">`;
+  const rn=document.getElementById('rotnote');
+  rn.style.display=rot?'block':'none';
+  rn.textContent=rot?`Flagged for ${rot}° rotation — image and hotspots are fixed permanently at the next rebuild; hotspots hidden meanwhile.`:'';
+  curParts=workingParts(cur);
+  if(!rot) curParts.forEach(h=>stage.appendChild(mkHs(h)));
+  buildTable(tav);
+  fit();
+  if(selPn) setTimeout(()=>select(selPn,true),60);
+}
+function mkHs(h){
+  const d=document.createElement('div');
+  d.className='hs'+(h.verified?' verified':'');
+  d.dataset.id=h.id; d.dataset.pn=h.pn;
+  const w=Math.max(h.w*cur.w,90), ht=Math.max(h.h*cur.h,34);
+  d.style.cssText=`left:${h.x*cur.w-w/2}px;top:${h.y*cur.h-ht/2}px;width:${w}px;height:${ht}px`;
+  d.innerHTML='<div class="grip"></div>';
+  d.onclick=(e)=>{ if(editing){select(h.pn,false,h.id);openPop(h.id);} else select(h.pn,false,h.id); };
+  return d;
+}
+function buildTable(tav){
   const tbl=document.createElement('table');
   tbl.innerHTML='<thead><tr><th>PART NO.</th><th>ALSO ON</th><th>OCR CONF</th></tr></thead>';
   const tb=document.createElement('tbody');
-  cur.parts.slice().sort((a,b)=>a.pn<b.pn?-1:1).forEach(h=>{
-    const tr=document.createElement('tr');tr.dataset.pn=h.pn;
+  curParts.slice().sort((a,b)=>a.pn<b.pn?-1:1).forEach(h=>{
+    const tr=document.createElement('tr');tr.dataset.pn=h.pn;tr.dataset.id=h.id;
     const others=(where[h.pn]||[]).filter(t=>t!==tav);
-    tr.innerHTML=`<td class="pn">${h.pn}</td>
+    const tag=h.id.startsWith('n')?'<span class="also" style="background:var(--ok)">added</span>'
+             :h.verified?'<span class="also" style="background:var(--ok)">✓</span>':'';
+    tr.innerHTML=`<td class="pn">${h.pn} ${tag}</td>
       <td>${others.slice(0,3).map(t=>`<span class="also" data-t="${t}">${t}</span>`).join('')}${others.length>3?'…':''}</td>
       <td class="cf ${h.conf&&h.conf<55?'lo':''}">${h.conf?Math.round(h.conf)+'%':''}</td>`;
     tr.onclick=e=>{
-      const a=e.target.closest('.also');
+      const a=e.target.closest('.also[data-t]');
       if(a){load(a.dataset.t,h.pn);return;}
-      select(h.pn,true);
+      select(h.pn,true,h.id);
+      if(editing)openPop(h.id);
     };
     tb.appendChild(tr);
   });
   tbl.appendChild(tb);
   const pp=document.getElementById('parts');pp.innerHTML='';pp.appendChild(tbl);
-  fit();
-  if(selPn) setTimeout(()=>select(selPn,true),60);
 }
-function select(pn,zoom){
-  document.querySelectorAll('.hs').forEach(h=>h.classList.toggle('sel',h.dataset.pn===pn));
+function select(pn,zoom,id){
+  document.querySelectorAll('.hs').forEach(h=>h.classList.toggle('sel',id?h.dataset.id===id:h.dataset.pn===pn));
   document.querySelectorAll('tbody tr').forEach(tr=>{
-    const on=tr.dataset.pn===pn;tr.classList.toggle('sel',on);
+    const on=id?tr.dataset.id===id:tr.dataset.pn===pn;tr.classList.toggle('sel',on);
     if(on)tr.scrollIntoView({block:'nearest',behavior:'smooth'});
   });
-  const h=cur.parts.find(x=>x.pn===pn);
+  const h=curParts.find(x=>id?x.id===id:x.pn===pn);
   if(zoom&&h)zoomTo(h.x*cur.w,h.y*cur.h,Math.max(view.s,1.0));
 }
 
@@ -205,6 +275,135 @@ document.addEventListener('click',e=>{if(!e.target.closest('#results')&&e.target
 document.getElementById('foot').innerHTML=
   `<span><b>${D.stats.plates}</b> plates · <b>${D.stats.parts}</b> distinct part numbers · <b>${D.stats.usages}</b> placements · <b>${D.stats.multi_plate_parts}</b> parts appear on 2+ plates (auto cross-links)</span>
    <span style="color:var(--warn)">All data is raw OCR — unverified. Confidence shown per hotspot.</span>`;
+
+/* ============== EDIT MODE ============== */
+let editing=false, addMode=false;
+const pop=document.getElementById('edpop');
+const bT=document.getElementById('ed-toggle'),bA=document.getElementById('ed-add'),
+      bR=document.getElementById('ed-rot'),bX=document.getElementById('ed-export');
+
+bT.onclick=()=>{
+  editing=!editing;document.body.classList.toggle('editing',editing);
+  bT.classList.toggle('on',editing);
+  [bA,bR,bX].forEach(b=>b.style.display=editing?'':'none');
+  document.getElementById('hint').textContent=editing
+    ?'EDIT MODE — click a box to fix its number · drag box to move · drag orange grip to resize · ＋ Add box for missed numbers'
+    :'drag to pan · scroll to zoom · click part numbers on the drawing';
+  if(!editing){addMode=false;bA.classList.remove('on');closePop();}
+};
+
+function stagePoint(e){
+  const r=viewer.getBoundingClientRect();
+  return {x:(e.clientX-r.left-view.x)/view.s, y:(e.clientY-r.top-view.y)/view.s};
+}
+function setEdit(id,patch){
+  const e=edFor(cur.tav);
+  const h=curParts.find(x=>x.id===id);
+  const base=e.hs[id]||(id.startsWith('b')
+      ?{pn:h.pn,x:h.x,y:h.y,w:h.w,h:h.h}
+      :null);
+  e.hs[id]=Object.assign({},base,e.hs[id]||{},patch);
+  edSave();
+}
+
+/* popup editor */
+function openPop(id){
+  const h=curParts.find(x=>x.id===id); if(!h)return;
+  pop.dataset.id=id;
+  pop.innerHTML=`
+    <input type="text" id="ep-pn" value="${h.pn}" spellcheck="false">
+    <div class="row"><label><input type="checkbox" id="ep-ver" ${h.verified?'checked':''}> verified correct</label></div>
+    <div class="row"><button class="pri" id="ep-save">Save</button><button class="del" id="ep-del">Delete box</button></div>
+    <div class="row" style="color:var(--dim);font-size:11px">${h.conf?('OCR read this at '+Math.round(h.conf)+'% confidence'):'manually added box'}</div>`;
+  const r=viewer.getBoundingClientRect();
+  pop.style.left=Math.min(r.width-250,Math.max(8,(h.x*cur.w)*view.s+view.x+30))+'px';
+  pop.style.top=Math.min(r.height-140,Math.max(8,(h.y*cur.h)*view.s+view.y-20))+'px';
+  pop.style.display='block';
+  document.getElementById('ep-save').onclick=()=>{
+    setEdit(id,{pn:document.getElementById('ep-pn').value.trim(),
+                verified:document.getElementById('ep-ver').checked});
+    closePop();refresh(id);
+  };
+  document.getElementById('ep-del').onclick=()=>{setEdit(id,{del:true});closePop();refresh();};
+  document.getElementById('ep-pn').focus();
+}
+function closePop(){pop.style.display='none';pop.dataset.id='';}
+function refresh(selId){rebuildWhere();const t=cur.tav;load(t);if(selId)select(null,false,selId);}
+
+/* move + resize (drag box / drag grip) */
+let hsDrag=null;
+stage.addEventListener('mousedown',e=>{
+  if(!editing)return;
+  const grip=e.target.closest('.grip'), box=e.target.closest('.hs');
+  if(!box)return;
+  e.stopPropagation();e.preventDefault();
+  const h=curParts.find(x=>x.id===box.dataset.id);
+  hsDrag={id:box.dataset.id,el:box,h,grip:!!grip,start:stagePoint(e),
+          ox:h.x,oy:h.y,ow:h.w,oh:h.h,moved:false};
+},true);
+window.addEventListener('mousemove',e=>{
+  if(!hsDrag)return;
+  const p=stagePoint(e),dx=(p.x-hsDrag.start.x)/cur.w,dy=(p.y-hsDrag.start.y)/cur.h;
+  if(Math.abs(dx)+Math.abs(dy)>0.0005)hsDrag.moved=true;
+  const h=hsDrag.h;
+  if(hsDrag.grip){h.w=Math.max(.01,hsDrag.ow+dx*2);h.h=Math.max(.008,hsDrag.oh+dy*2);}
+  else{h.x=hsDrag.ox+dx;h.y=hsDrag.oy+dy;}
+  const el=hsDrag.el,w=Math.max(h.w*cur.w,90),ht=Math.max(h.h*cur.h,34);
+  el.style.left=(h.x*cur.w-w/2)+'px';el.style.top=(h.y*cur.h-ht/2)+'px';
+  el.style.width=w+'px';el.style.height=ht+'px';
+});
+window.addEventListener('mouseup',()=>{
+  if(hsDrag&&hsDrag.moved){
+    const h=hsDrag.h;
+    setEdit(hsDrag.id,{x:+h.x.toFixed(4),y:+h.y.toFixed(4),w:+h.w.toFixed(4),h:+h.h.toFixed(4)});
+  }
+  hsDrag=null;
+});
+
+/* add box */
+bA.onclick=()=>{addMode=!addMode;bA.classList.toggle('on',addMode);};
+let addDrag=null;
+const addrect=document.createElement('div');addrect.id='addrect';stage.appendChild(addrect);
+viewer.addEventListener('mousedown',e=>{
+  if(!editing||!addMode||e.target.closest('.zoomctl')||e.target.closest('#edpop'))return;
+  e.stopPropagation();e.preventDefault();
+  addDrag=stagePoint(e);
+  stage.appendChild(addrect);addrect.style.display='block';
+},true);
+window.addEventListener('mousemove',e=>{
+  if(!addDrag)return;
+  const p=stagePoint(e);
+  addrect.style.left=Math.min(addDrag.x,p.x)+'px';addrect.style.top=Math.min(addDrag.y,p.y)+'px';
+  addrect.style.width=Math.abs(p.x-addDrag.x)+'px';addrect.style.height=Math.abs(p.y-addDrag.y)+'px';
+});
+window.addEventListener('mouseup',e=>{
+  if(!addDrag)return;
+  const p=stagePoint(e),x1=Math.min(addDrag.x,p.x),y1=Math.min(addDrag.y,p.y),
+        w=Math.abs(p.x-addDrag.x),h=Math.abs(p.y-addDrag.y);
+  addDrag=null;addrect.style.display='none';
+  if(w<20||h<12)return;
+  const id='n'+Date.now();
+  const ed=edFor(cur.tav);
+  ed.hs[id]={pn:'',x:+((x1+w/2)/cur.w).toFixed(4),y:+((y1+h/2)/cur.h).toFixed(4),
+             w:+(w/cur.w).toFixed(4),h:+(h/cur.h).toFixed(4),verified:true};
+  edSave();refresh();setTimeout(()=>{select(null,false,id);openPop(id);},80);
+  addMode=false;bA.classList.remove('on');
+});
+
+/* rotate flag */
+bR.onclick=()=>{
+  const e=edFor(cur.tav);
+  e.rotate=((e.rotate||0)+90)%360;
+  edSave();load(cur.tav);
+};
+
+/* export */
+bX.onclick=()=>{
+  const out={version:1,exported_for:'pipeline/apply_edits.py',edits:ED};
+  const blob=new Blob([JSON.stringify(out,null,1)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='edits.json';a.click();
+};
+edCount();
 
 /* start on the first brakes plate if present, else first plate */
 load(plates['33125']?'33125':Object.keys(plates)[0]);
