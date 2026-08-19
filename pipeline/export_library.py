@@ -34,7 +34,23 @@ def main():
     ap.add_argument("--branch", default="main")
     ap.add_argument("--raw", default="archive/raw")
     ap.add_argument("--out", default="docs/library.html")
+    ap.add_argument("--db", default=None,
+                    help="optional fiat.db — adds 'open in viewer' links for ingested docs")
     args = ap.parse_args()
+
+    viewers = {}   # filename -> slug
+    if args.db:
+        import sqlite3
+        db = sqlite3.connect(args.db)
+        try:
+            for fn, slug in db.execute("""
+                SELECT s.title, d.url_or_path FROM document d
+                JOIN source s ON s.id=d.source_id
+                WHERE d.hosted=1 AND EXISTS
+                  (SELECT 1 FROM document_page dp WHERE dp.document_id=d.id)"""):
+                viewers[fn] = slug
+        except sqlite3.OperationalError:
+            pass
 
     groups = {}   # vehicle -> category -> [(name, size, url)]
     for f in sorted(Path(args.raw).rglob("*")):
@@ -54,7 +70,9 @@ def main():
             rows.append(f'<h3>{cat}</h3><ul>')
             for name, size, url in groups[veh][cat]:
                 pretty = html.escape(re.sub(r"[_]+", " ", name))
-                rows.append(f'<li><a href="{url}">{pretty}</a>'
+                view = (f' <a class="vw" href="doc.html?d={viewers[name]}">▶ open in viewer</a>'
+                        if name in viewers else '')
+                rows.append(f'<li><span><a href="{url}">{pretty}</a>{view}</span>'
                             f'<span class="sz">{human(size)}</span></li>')
             rows.append('</ul>')
     listing = "\n".join(rows) or "<p>No documents yet.</p>"
@@ -77,6 +95,7 @@ def main():
  li a{{color:var(--accent2);text-decoration:none}}
  li a:hover{{text-decoration:underline}}
  .sz{{color:var(--dim);font-size:12px;white-space:nowrap}}
+ .vw{{color:#1c1f26!important;background:var(--accent);border-radius:4px;padding:1px 8px;font-size:11.5px;margin-left:8px;white-space:nowrap}}
  .note{{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--dim);margin-top:8px}}
 </style></head><body>
 <header><h1>FIAT CLASSIC PARTS ARCHIVE — DOCUMENT LIBRARY</h1>

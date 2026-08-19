@@ -1,0 +1,1 @@
+window.DOCS_INDEX=[{"slug": "sm-74-78-usa", "title": "Service Manual 1974\u20131978 (USA)", "type": "service_manual", "vehicle": "x19", "file": "Fiat_X19_Service_Manual_1974_to_1978_USA.pdf", "npages": 347}];

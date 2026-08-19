@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document viewer — Fiat Classic Parts Archive</title>
+<style>
+ :root{--bg:#1c1f26;--panel:#252932;--panel2:#2c313c;--line:#3a4150;--txt:#e8e6df;
+   --dim:#9aa0ac;--accent:#e8b84b;--accent2:#7fb4d8;--ok:#8fc98f}
+ *{box-sizing:border-box;margin:0;padding:0}html,body{height:100%}
+ body{font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--txt);display:flex;flex-direction:column;overflow:hidden}
+ header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+ h1{font-size:14px;font-weight:600;letter-spacing:.03em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+ header a{color:var(--accent);text-decoration:none;font-size:12.5px;border:1px solid var(--line);border-radius:6px;padding:5px 10px;white-space:nowrap}
+ .pgnav{display:flex;gap:6px;align-items:center}
+ .pgnav button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+ .pgnav input{width:64px;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:5px;text-align:center}
+ .pgnav .of{color:var(--dim);font-size:12px}
+ #q{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:6px 12px;font-size:13px;width:250px}
+ #app{display:flex;flex:1;min-height:0}
+ #viewer{flex:1;position:relative;overflow:hidden;background:#14161b;cursor:grab}
+ #viewer.dragging{cursor:grabbing}
+ #stage{position:absolute;top:0;left:0;transform-origin:0 0}
+ #stage img{display:block;box-shadow:0 6px 30px rgba(0,0,0,.5);background:#fff}
+ .zoomctl{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
+ .zoomctl button{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:16px;cursor:pointer}
+ aside{width:330px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+ aside .pt{padding:10px 14px 6px;font-size:11px;letter-spacing:.12em;color:var(--dim)}
+ #hits{flex:1;overflow-y:auto}
+ .hit{padding:8px 14px;border-bottom:1px solid #2e3340;font-size:12.5px;cursor:pointer}
+ .hit:hover{background:var(--panel2)}
+ .hit .pno{color:var(--accent);font-weight:600}
+ .hit .snip{color:var(--dim);font-size:11.5px;margin-top:2px}
+ .hit .snip b{color:var(--accent2);font-weight:600}
+ #pnbar{padding:8px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
+ #pnbar a{display:inline-block;margin:2px 4px 0 0;background:var(--accent2);color:#1c1f26;border-radius:4px;padding:1px 7px;font-size:11px;text-decoration:none;font-family:ui-monospace,monospace}
+ .none{padding:12px 14px;color:var(--dim);font-size:12.5px}
+</style></head><body>
+<header>
+  <a href="library.html">← Library</a><a href="index.html">Parts viewer</a>
+  <h1 id="title">…</h1>
+  <div class="pgnav">
+    <button id="prev">‹</button>
+    <input id="pno" value="1"><span class="of" id="of">/ ?</span>
+    <button id="next">›</button>
+  </div>
+  <input id="q" type="search" placeholder="Search inside this document…" autocomplete="off">
+</header>
+<div id="app">
+  <div id="viewer">
+    <div class="zoomctl"><button id="z-in">+</button><button id="z-out">−</button><button id="z-fit" style="font-size:12px">fit</button></div>
+    <div id="stage"></div>
+  </div>
+  <aside>
+    <div class="pt" id="hits-title">SEARCH RESULTS</div>
+    <div id="hits"><div class="none">Type in the search box to find text anywhere in this document. OCR-based, so near-misses happen — try shorter words.</div></div>
+    <div id="pnbar"></div>
+  </aside>
+</div>
+<script src="docs_index.js"></script>
+<script>
+const slug=new URLSearchParams(location.search).get('d')||((window.DOCS_INDEX||[])[0]||{}).slug;
+const s=document.createElement('script');s.src='docdata/'+slug+'.js';
+s.onload=init;document.head.appendChild(s);
+let doc=null,cur=0,view={x:0,y:0,s:1},imgW=1275,imgH=1650;
+const stage=document.getElementById('stage'),viewer=document.getElementById('viewer');
+function init(){
+  doc=window.DOCDATA[slug];
+  document.getElementById('title').textContent=doc.title;
+  document.getElementById('of').textContent='/ '+doc.pages.length;
+  document.title=doc.title+' — Fiat Archive';
+  show(0);
+}
+function show(i){
+  if(!doc)return;
+  cur=Math.max(0,Math.min(doc.pages.length-1,i));
+  const pg=doc.pages[cur];
+  document.getElementById('pno').value=pg.p;
+  const im=new Image();
+  im.onload=()=>{imgW=im.naturalWidth;imgH=im.naturalHeight;
+    stage.innerHTML='';stage.appendChild(im);fit();};
+  im.src=pg.img;
+  const bar=document.getElementById('pnbar');
+  bar.innerHTML=pg.pn.length
+    ?'Part numbers on this page → '+pg.pn.map(n=>`<a href="index.html?pn=${n}" title="find ${n} in the parts catalog">${n}</a>`).join('')
+    :'';
+}
+document.getElementById('prev').onclick=()=>show(cur-1);
+document.getElementById('next').onclick=()=>show(cur+1);
+document.getElementById('pno').onchange=e=>{
+  const want=parseInt(e.target.value)||1;
+  const i=doc.pages.findIndex(p=>p.p===want);
+  show(i>=0?i:want-1);
+};
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='ArrowLeft')show(cur-1);
+  if(e.key==='ArrowRight')show(cur+1);
+});
+/* pan/zoom */
+function apply(){stage.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;}
+function fit(){const r=viewer.getBoundingClientRect();
+  view.s=Math.min(r.width/imgW,r.height/imgH)*.97;
+  view.x=(r.width-imgW*view.s)/2;view.y=(r.height-imgH*view.s)/2;apply();}
+viewer.addEventListener('wheel',e=>{e.preventDefault();
+  const r=viewer.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  const f=e.deltaY<0?1.18:1/1.18,s2=Math.min(6,Math.max(.1,view.s*f));
+  view.x=mx-(mx-view.x)*(s2/view.s);view.y=my-(my-view.y)*(s2/view.s);view.s=s2;apply();
+},{passive:false});
+let drag=null;
+viewer.addEventListener('mousedown',e=>{if(e.target.closest('.zoomctl'))return;
+  drag={mx:e.clientX,my:e.clientY,x:view.x,y:view.y};viewer.classList.add('dragging');});
+window.addEventListener('mousemove',e=>{if(!drag)return;
+  view.x=drag.x+(e.clientX-drag.mx);view.y=drag.y+(e.clientY-drag.my);apply();});
+window.addEventListener('mouseup',()=>{drag=null;viewer.classList.remove('dragging');});
+document.getElementById('z-in').onclick=()=>{view.s=Math.min(6,view.s*1.35);apply();};
+document.getElementById('z-out').onclick=()=>{view.s=Math.max(.1,view.s/1.35);apply();};
+document.getElementById('z-fit').onclick=fit;
+window.addEventListener('resize',fit);
+/* in-document text search */
+const q=document.getElementById('q'),hits=document.getElementById('hits');
+let deb=null;
+q.addEventListener('input',()=>{clearTimeout(deb);deb=setTimeout(run,250);});
+function run(){
+  const term=q.value.trim().toLowerCase();
+  if(term.length<3){hits.innerHTML='<div class="none">Type at least 3 characters.</div>';return;}
+  const out=[];
+  doc.pages.forEach((pg,i)=>{
+    const t=(pg.txt||'').toLowerCase(),k=t.indexOf(term);
+    if(k>=0){
+      const raw=pg.txt.substring(Math.max(0,k-60),k+term.length+60).replace(/\s+/g,' ');
+      out.push({i,p:pg.p,snip:raw.replace(new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'),'<b>$1</b>')});
+    }
+  });
+  document.getElementById('hits-title').textContent='SEARCH RESULTS — '+out.length+' PAGES';
+  hits.innerHTML=out.length
+    ?out.slice(0,80).map(h=>`<div class="hit" data-i="${h.i}"><span class="pno">p. ${h.p}</span><div class="snip">…${h.snip}…</div></div>`).join('')
+    :'<div class="none">No pages match. OCR text isn\'t perfect — try a shorter or different word.</div>';
+}
+hits.addEventListener('click',e=>{
+  const h=e.target.closest('.hit');if(h)show(+h.dataset.i);
+});
+</script></body></html>

@@ -408,8 +408,14 @@ bX.onclick=()=>{
 };
 edCount();
 
-/* start on the first brakes plate if present, else first plate */
-load(plates['33125']?'33125':Object.keys(plates)[0]);
+/* start: honor ?pn=NNNN deep-links from manuals, else first brakes plate */
+const wantPn=new URLSearchParams(location.search).get('pn');
+if(wantPn&&where[wantPn]){
+  load(where[wantPn][0],wantPn);
+  searchEl.value=wantPn;searchEl.dispatchEvent(new Event('input'));
+}else{
+  load(plates['33125']?'33125':Object.keys(plates)[0]);
+}
 </script>
 </body>
 </html>

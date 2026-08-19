@@ -197,6 +197,17 @@ CREATE TABLE document (
     hosted      INTEGER DEFAULT 0         -- 1 = we host it, 0 = link out
 );
 
+CREATE TABLE document_page (
+    id          INTEGER PRIMARY KEY,
+    document_id INTEGER NOT NULL REFERENCES document(id),
+    page_no     INTEGER NOT NULL,
+    file_path   TEXT NOT NULL,
+    ocr_text    TEXT,
+    part_nos    TEXT,            -- comma-separated part numbers detected on page
+    ocr_status  TEXT DEFAULT 'done',
+    UNIQUE (document_id, page_no)
+);
+
 -- ------------------------------------------------------------
 -- 7. CONVENIENCE VIEWS (used by the static-site exporter)
 -- ------------------------------------------------------------
