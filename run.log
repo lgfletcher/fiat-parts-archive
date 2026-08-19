@@ -1,0 +1,122 @@
+p001  tav=p001       numbers=0   title=None
+p002  tav=p002       numbers=3   title=None
+p003  tav=10000      numbers=2   title=MOTORE
+p004  tav=10002      numbers=11  title=SOSPENSIONI GRUPPO MOTOPROPULSORE
+p005  tav=p005       numbers=16  title=None
+p006  tav=10101      numbers=31  title=BASAMENTO E TESTA CILINDRI
+p007  tav=10101·2    numbers=15  title=None
+p008  tav=10102      numbers=23  title=COPPA E COPERCHI BASAMENTO
+p009  tav=p009       numbers=8   title=None
+p010  tav=p010       numbers=0   title=None
+p011  tav=0361       numbers=0   title=None
+p012  tav=10106      numbers=21  title=VALE PER TUTTI I MOD.BASE
+p013  tav=10105      numbers=9   title=None
+p014  tav=10107      numbers=25  title=DISTRIBUZIONE
+p015  tav=10106·2    numbers=24  title=None
+p016  tav=10107·2    numbers=47  title=None
+p017  tav=10115      numbers=0   title=COMANDI VARI
+p018  tav=10202      numbers=12  title=POMPA ALIMENTAZIONE E TUBAZIONI
+p019  tav=10201      numbers=24  title=None
+p020  tav=10204      numbers=11  title=None
+p021  tav=10205      numbers=5   title=FILTRO ARIA 4297948
+p022  tav=10206      numbers=28  title=None
+p023  tav=10206·2    numbers=30  title=CARBURATORE 4297950(WEBER)
+p024  tav=10221      numbers=22  title=None
+p025  tav=10221·2    numbers=6   title=COMANDI ACCELERATORE E CARBURATORE
+p026  tav=10254      numbers=17  title=None
+p027  tav=10256      numbers=12  title=TUBAZIONE DI SCARICO
+p028  tav=p028       numbers=16  title=None
+p029  tav=10301      numbers=27  title=LUBRIFICAZIONE
+p030  tav=10401      numbers=9   title=RADIATORE
+p031  tav=10302      numbers=12  title=None
+p032  tav=10402      numbers=16  title=VALE PER TUTTI I MOD.BASE
+p033  tav=p033       numbers=18  title=None
+p034  tav=p034       numbers=26  title=None
+p035  tav=10402·2    numbers=6   title=POMPA ACQUA E TUBAZIONI ,
+p036  tav=1974       numbers=16  title=VALE PER TUTTI I MOD.BASE
+p037  tav=10403      numbers=17  title=None
+p038  tav=18101      numbers=6   title=COMANDO DISINNESTO FRIZIONE
+p039  tav=10409      numbers=21  title=None
+p040  tav=18102      numbers=22  title=COMANDO IDRAULICO DISINNESTO FRIZIONE
+p041  tav=p041       numbers=14  title=None
+p042  tav=18104      numbers=7   title=CILINDRO COMANDO DISINNESTO 4300686
+p043  tav=18103      numbers=11  title=None
+p044  tav=21201      numbers=12  title=CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI
+p045  tav=18105      numbers=5   title=None
+p046  tav=21201·2    numbers=18  title=CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI .
+p047  tav=21201·3    numbers=24  title=None
+p048  tav=21201·4    numbers=25  title=CAMBIO E DIFFERENZIALE SCATOLA E COPERCHI
+p049  tav=p049       numbers=13  title=None
+p050  tav=p050       numbers=0   title=None
+p051  tav=p051       numbers=1   title=None
+p052  tav=21207      numbers=18  title=COMANDI ESTERNI CAMBIO DI VELOCITA
+p053  tav=p053       numbers=37  title=None
+p054  tav=21204      numbers=5   title=None
+p055  tav=27401      numbers=22  title=SEMIALBERI DIFFERENZIALE
+p056  tav=33101      numbers=11  title=None
+p057  tav=33102      numbers=14  title=COMANDO IDRAULICO FRENI |
+p058  tav=33102/1    numbers=20  title=COMANDO IDRAULICO FRENI
+p059  tav=p059       numbers=14  title=None
+p060  tav=p060       numbers=19  title=None
+p061  tav=33106      numbers=14  title=CILINDRO MAESTRO 4258745
+p062  tav=33119      numbers=7   title=PINZA ANTERIORE DESTRA 4269407
+p063  tav=33117      numbers=12  title=None
+p064  tav=33123      numbers=9   title=FRENI RUOTE POSTERIORI
+p065  tav=33119/1    numbers=9   title=None
+p066  tav=33125      numbers=4   title=PINZA POSTERIORE SINISTRA 4300927
+p067  tav=33125·2    numbers=6   title=None
+p068  tav=33139      numbers=12  title=COMANDO A MANO FRENI
+p069  tav=p069       numbers=18  title=None
+p070  tav=41201      numbers=19  title=COMANDO STERZO
+p071  tav=38115      numbers=16  title=None
+p072  tav=41202      numbers=21  title=SCATOLA STERZO 4290732
+p073  tav=p073       numbers=12  title=None
+p074  tav=44301      numbers=21  title=SOSPENSIONE ANTERIORE
+p075  tav=p075       numbers=1   title=None
+p076  tav=44302      numbers=22  title=I VALE PER TUTTI I MOD.BASE
+p077  tav=44302·2    numbers=9   title=None
+p078  tav=44300      numbers=21  title=VALE PER TUTTI I MOD.BASE
+p079  tav=p079       numbers=22  title=None
+p080  tav=44310/1    numbers=3   title=VALE PER TUTTI I MOD.BASE
+p081  tav=p081       numbers=2   title=None
+p082  tav=30101      numbers=21  title=RISCALDAMENTO E VENTILAZIONE
+p083  tav=44316      numbers=19  title=None
+p084  tav=p084       numbers=12  title=None
+p085  tav=50102      numbers=15  title=RISCALDATORE 4290124
+p086  tav=90103      numbers=15  title=COMANDI RISCALDAMENTO E VENTILAZIONE
+p087  tav=50102·2    numbers=15  title=None
+p088  tav=90107      numbers=3   title=LAVACRISTALLO
+p089  tav=p089       numbers=21  title=None
+p090  tav=55101      numbers=20  title=None
+p091  tav=95103      numbers=11  title=DISTRIBUTORE DI ACCENSIONE 4286130 (MARELLI)
+p092  tav=55205      numbers=26  title=MOTORINO DI AVVIAMENTO 4198601
+p093  tav=55208      numbers=7   title=None
+p094  tav=5590       numbers=11  title=None
+p095  tav=55301      numbers=20  title=GENERAZIONE DI CORRENTE
+p096  tav=p096       numbers=23  title=VALE PER TUTTI I MOD.BASE
+p097  tav=55303      numbers=14  title=None
+p098  tav=99401      numbers=24  title=ILLUMINAZIONE ESTERNA ED INTERNA
+p099  tav=55401      numbers=6   title=None
+p100  tav=p100       numbers=12  title=None
+p101  tav=90409      numbers=10  title=PROIETTORE 4273537
+p102  tav=55405/1    numbers=8   title=None
+p103  tav=55405      numbers=9   title=PROIETTORE 4285859 |
+p104  tav=p104       numbers=9   title=None
+p105  tav=55405·2    numbers=10  title=PROIETTORE 4329910
+p106  tav=p106       numbers=12  title=None
+p107  tav=55405·3    numbers=7   title=PROIETTORE 4329944
+p108  tav=55405/7    numbers=8   title=None
+p109  tav=99420      numbers=8   title=FANALE ANTERIORE 4271355
+p110  tav=55420/1    numbers=8   title=None
+p111  tav=00460/2    numbers=8   title=FANALE ANTERIORE 4292077 |
+p112  tav=p112       numbers=7   title=None
+p113  tav=55423      numbers=10  title=FANALE POSTERIORE 4271522
+p114  tav=35423      numbers=10  title=None
+p115  tav=99001      numbers=10  title=SEGNALAZIONE DI AVVISO E DI MANOVRA
+p116  tav=55510      numbers=4   title=SEGNALAZIONI DI FUNZIONAMENTO
+p117  tav=p117       numbers=12  title=None
+p118  tav=p118       numbers=8   title=None
+p119  tav=55515      numbers=19  title=ACCESSORI VARI
+p120  tav=55516      numbers=14  title=None
+p121  tav=68101      numbers=9   title=ATTREZZI
+DONE {'pages': 121, 'plates': 121, 'numbers': 1659}
