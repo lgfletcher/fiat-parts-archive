@@ -38,6 +38,29 @@ def main():
                            (d["id"],)).fetchall()
         if not pages:
             continue
+        # sections + topics + related plates (same Gruppo prefix, same vehicle)
+        sections = []
+        try:
+            sec_rows = db.execute("""SELECT id, block, code, title, page_from, page_to
+                                     FROM document_section WHERE document_id=?
+                                     ORDER BY page_from""", (d["id"],)).fetchall()
+        except sqlite3.OperationalError:
+            sec_rows = []
+        for s in sec_rows:
+            topics = [{"p": t["page_no"], "t": t["title"]} for t in db.execute(
+                "SELECT page_no,title FROM document_topic WHERE section_id=? ORDER BY page_no",
+                (s["id"],))]
+            rel = []
+            if s["code"]:
+                rel = [[r["tav_code"], r["title_en"] or r["title"] or ""] for r in db.execute(
+                    """SELECT pl.tav_code, pl.title, pl.title_en
+                       FROM plate pl JOIN catalog c ON c.id=pl.catalog_id
+                       JOIN vehicle v ON v.id=c.vehicle_id
+                       WHERE v.code=? AND substr(pl.tav_code,1,2)=?
+                       ORDER BY pl.tav_code LIMIT 40""", (d["vehicle"], s["code"]))]
+            sections.append({"block": s["block"], "code": s["code"], "title": s["title"],
+                             "from": s["page_from"], "to": s["page_to"],
+                             "topics": topics, "plates": rel})
         imgdir = out / "docimg" / d["slug"]
         imgdir.mkdir(parents=True, exist_ok=True)
         pdata = []
@@ -54,7 +77,8 @@ def main():
             "window.DOCDATA=window.DOCDATA||{};window.DOCDATA[" + json.dumps(d["slug"]) +
             "]=" + json.dumps({"slug": d["slug"], "title": d["title"],
                                "type": d["doc_type"], "vehicle": d["vehicle"],
-                               "file": d["filename"], "pages": pdata}) + ";")
+                               "file": d["filename"], "pages": pdata,
+                               "sections": sections}) + ";")
         index.append({"slug": d["slug"], "title": d["title"], "type": d["doc_type"],
                       "vehicle": d["vehicle"], "file": d["filename"], "npages": len(pdata)})
         print(f"exported {d['slug']}: {len(pdata)} pages")
@@ -87,6 +111,15 @@ TEMPLATE = r"""<!DOCTYPE html>
  #stage img{display:block;box-shadow:0 6px 30px rgba(0,0,0,.5);background:#fff}
  .zoomctl{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
  .zoomctl button{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:16px;cursor:pointer}
+ #toc{width:248px;background:var(--panel);border-right:1px solid var(--line);overflow-y:auto;padding:8px 0}
+ #toc .blk{padding:8px 14px 3px;font-size:10.5px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+ #toc .sec{padding:6px 14px;font-size:12.5px;color:var(--txt);cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+ #toc .sec:hover{background:var(--panel2)}
+ #toc .sec.active{background:var(--panel2);color:var(--accent);border-left:3px solid var(--accent);padding-left:11px}
+ #toc .sec .pg{color:var(--dim);font-size:10.5px;white-space:nowrap}
+ #toc .top{padding:3px 14px 3px 26px;font-size:11.5px;color:var(--dim);cursor:pointer;display:flex;justify-content:space-between;gap:6px}
+ #toc .top:hover{color:var(--txt)}
+ #toc .top .pg{font-size:10px}
  aside{width:330px;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
  aside .pt{padding:10px 14px 6px;font-size:11px;letter-spacing:.12em;color:var(--dim)}
  #hits{flex:1;overflow-y:auto}
@@ -110,6 +143,7 @@ TEMPLATE = r"""<!DOCTYPE html>
   <input id="q" type="search" placeholder="Search inside this document…" autocomplete="off">
 </header>
 <div id="app">
+  <nav id="toc"></nav>
   <div id="viewer">
     <div class="zoomctl"><button id="z-in">+</button><button id="z-out">−</button><button id="z-fit" style="font-size:12px">fit</button></div>
     <div id="stage"></div>
@@ -132,7 +166,32 @@ function init(){
   document.getElementById('title').textContent=doc.title;
   document.getElementById('of').textContent='/ '+doc.pages.length;
   document.title=doc.title+' — Fiat Archive';
-  show(0);
+  buildToc();
+  const wantP=parseInt(new URLSearchParams(location.search).get('p'));
+  if(wantP){const i=doc.pages.findIndex(pg=>pg.p===wantP);show(i>=0?i:0);}
+  else show(0);
+}
+function buildToc(){
+  const toc=document.getElementById('toc');
+  if(!doc.sections||!doc.sections.length){toc.innerHTML='<div class="blk">No sections detected yet</div>';return;}
+  let lastBlk=null;
+  doc.sections.forEach((s,si)=>{
+    if(s.block!==lastBlk){lastBlk=s.block;
+      const b=document.createElement('div');b.className='blk';b.textContent=s.block;toc.appendChild(b);}
+    const d=document.createElement('div');d.className='sec';d.dataset.si=si;
+    d.innerHTML=`<span>${s.code?s.code+' · ':''}${s.title}</span><span class="pg">${s.from}–${s.to}</span>`;
+    d.onclick=()=>{const i=doc.pages.findIndex(pg=>pg.p===s.from);show(i>=0?i:0);};
+    toc.appendChild(d);
+    s.topics.forEach(t=>{
+      const e=document.createElement('div');e.className='top';
+      e.innerHTML=`<span>${t.t}</span><span class="pg">${t.p}</span>`;
+      e.onclick=()=>{const i=doc.pages.findIndex(pg=>pg.p===t.p);show(i>=0?i:0);};
+      toc.appendChild(e);
+    });
+  });
+}
+function sectionFor(pno){
+  return (doc.sections||[]).find(s=>pno>=s.from&&pno<=s.to);
 }
 function show(i){
   if(!doc)return;
@@ -144,9 +203,19 @@ function show(i){
     stage.innerHTML='';stage.appendChild(im);fit();};
   im.src=pg.img;
   const bar=document.getElementById('pnbar');
-  bar.innerHTML=pg.pn.length
-    ?'Part numbers on this page → '+pg.pn.map(n=>`<a href="index.html?pn=${n}" title="find ${n} in the parts catalog">${n}</a>`).join('')
-    :'';
+  const sec=sectionFor(pg.p);
+  let html='';
+  if(pg.pn.length)
+    html+='Part numbers on this page → '+pg.pn.map(n=>`<a href="index.html?pn=${n}" title="find ${n} in the parts catalog">${n}</a>`).join('')+'<br>';
+  if(sec&&sec.plates&&sec.plates.length)
+    html+=`Parts plates for ${sec.title.toLowerCase()} → `+
+      sec.plates.slice(0,8).map(pl=>`<a href="index.html?tav=${encodeURIComponent(pl[0])}" title="${pl[1]}">${pl[0]}</a>`).join('')+
+      (sec.plates.length>8?' …':'');
+  bar.innerHTML=html;
+  document.querySelectorAll('#toc .sec').forEach(e=>{
+    const s=doc.sections[+e.dataset.si];
+    e.classList.toggle('active',s&&pg.p>=s.from&&pg.p<=s.to);
+  });
 }
 document.getElementById('prev').onclick=()=>show(cur-1);
 document.getElementById('next').onclick=()=>show(cur+1);

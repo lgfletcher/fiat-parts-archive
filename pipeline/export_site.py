@@ -61,6 +61,19 @@ def main():
                                  "img": jpg, "w": r["width_px"], "h": r["height_px"],
                                  "cat": cslug, "parts": parts}
 
+    # manual sections per Gruppo prefix (for plate → manual links)
+    manuals = {}
+    try:
+        for r in db.execute("""SELECT ds.code, ds.title, ds.page_from, ds.page_to, ds.block,
+                                      d.url_or_path AS slug, d.title AS dtitle
+                               FROM document_section ds JOIN document d ON d.id=ds.document_id
+                               WHERE ds.code<>'' ORDER BY d.id, ds.page_from"""):
+            manuals.setdefault(r["code"], []).append(
+                {"slug": r["slug"], "doc": r["dtitle"], "sec": r["title"],
+                 "block": r["block"], "from": r["page_from"], "to": r["page_to"]})
+    except sqlite3.OperationalError:
+        pass
+
     n_parts = db.execute("SELECT COUNT(*) FROM part").fetchone()[0]
     n_usage = db.execute("SELECT COUNT(*) FROM part_usage").fetchone()[0]
     shared = [dict(r) for r in db.execute(
@@ -71,7 +84,7 @@ def main():
         GROUP BY p.id HAVING n>1 ORDER BY n DESC LIMIT 200""")]
 
     data = {"categories": sorted(cats.values(), key=lambda c: c["gruppo"] or "99"),
-            "plates": plates,
+            "plates": plates, "manuals": manuals,
             "stats": {"plates": len(plates), "parts": n_parts, "usages": n_usage,
                       "multi_plate_parts": len(multi)},
             "generated": "by pipeline/export_site.py — all OCR data UNVERIFIED"}
@@ -185,6 +198,7 @@ TEMPLATE = r"""<!DOCTYPE html>
     </div>
   </div>
   <aside>
+    <div id="manrefs"></div>
     <div class="pt">PART NUMBERS FOUND ON THIS PLATE (OCR)</div>
     <div id="parts"></div>
   </aside>
@@ -274,6 +288,14 @@ function load(tav,selPn){
   curParts=workingParts(cur);
   if(!rot) curParts.forEach(h=>stage.appendChild(mkHs(h)));
   buildTable(tav);
+  const refs=(D.manuals||{})[tav.slice(0,2)]||[];
+  document.getElementById('manrefs').innerHTML=refs.length
+    ?`<div class="pt">WORKSHOP MANUAL</div>`+refs.map(m=>
+      `<div style="padding:2px 14px 8px;font-size:12px">
+         <a href="doc.html?d=${m.slug}&p=${m.from}" style="color:var(--accent2)">
+         ${m.sec} — p.${m.from}–${m.to}</a>
+         <div style="color:var(--dim);font-size:11px">${m.doc} · ${m.block}</div></div>`).join('')
+    :'';
   fit();
   if(selPn) setTimeout(()=>select(selPn,true),60);
 }
@@ -490,9 +512,12 @@ bX.onclick=()=>{
 };
 edCount();
 
-/* start: honor ?pn=NNNN deep-links from manuals, else first brakes plate */
+/* start: honor ?tav= / ?pn= deep-links from manuals, else first brakes plate */
+const wantTav=new URLSearchParams(location.search).get('tav');
 const wantPn=new URLSearchParams(location.search).get('pn');
-if(wantPn&&where[wantPn]){
+if(wantTav&&plates[wantTav]){
+  load(wantTav);
+}else if(wantPn&&where[wantPn]){
   load(where[wantPn][0],wantPn);
   searchEl.value=wantPn;searchEl.dispatchEvent(new Event('input'));
 }else{

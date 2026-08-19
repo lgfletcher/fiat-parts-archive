@@ -208,6 +208,25 @@ CREATE TABLE document_page (
     UNIQUE (document_id, page_no)
 );
 
+CREATE TABLE document_section (
+    id          INTEGER PRIMARY KEY,
+    document_id INTEGER NOT NULL REFERENCES document(id),
+    block       TEXT,             -- '1974 base', 'Supplement 1', ...
+    code        TEXT,             -- gruppo/section number as printed
+    title       TEXT,             -- friendly name
+    page_from   INTEGER NOT NULL, -- page_no of first page
+    page_to     INTEGER NOT NULL,
+    verified    INTEGER DEFAULT 0
+);
+
+CREATE TABLE document_topic (
+    id          INTEGER PRIMARY KEY,
+    section_id  INTEGER NOT NULL REFERENCES document_section(id),
+    page_no     INTEGER NOT NULL,
+    title       TEXT NOT NULL,
+    verified    INTEGER DEFAULT 0
+);
+
 -- ------------------------------------------------------------
 -- 7. CONVENIENCE VIEWS (used by the static-site exporter)
 -- ------------------------------------------------------------

@@ -103,6 +103,7 @@
     </div>
   </div>
   <aside>
+    <div id="manrefs"></div>
     <div class="pt">PART NUMBERS FOUND ON THIS PLATE (OCR)</div>
     <div id="parts"></div>
   </aside>
@@ -192,6 +193,14 @@ function load(tav,selPn){
   curParts=workingParts(cur);
   if(!rot) curParts.forEach(h=>stage.appendChild(mkHs(h)));
   buildTable(tav);
+  const refs=(D.manuals||{})[tav.slice(0,2)]||[];
+  document.getElementById('manrefs').innerHTML=refs.length
+    ?`<div class="pt">WORKSHOP MANUAL</div>`+refs.map(m=>
+      `<div style="padding:2px 14px 8px;font-size:12px">
+         <a href="doc.html?d=${m.slug}&p=${m.from}" style="color:var(--accent2)">
+         ${m.sec} — p.${m.from}–${m.to}</a>
+         <div style="color:var(--dim);font-size:11px">${m.doc} · ${m.block}</div></div>`).join('')
+    :'';
   fit();
   if(selPn) setTimeout(()=>select(selPn,true),60);
 }
@@ -408,9 +417,12 @@ bX.onclick=()=>{
 };
 edCount();
 
-/* start: honor ?pn=NNNN deep-links from manuals, else first brakes plate */
+/* start: honor ?tav= / ?pn= deep-links from manuals, else first brakes plate */
+const wantTav=new URLSearchParams(location.search).get('tav');
 const wantPn=new URLSearchParams(location.search).get('pn');
-if(wantPn&&where[wantPn]){
+if(wantTav&&plates[wantTav]){
+  load(wantTav);
+}else if(wantPn&&where[wantPn]){
   load(where[wantPn][0],wantPn);
   searchEl.value=wantPn;searchEl.dispatchEvent(new Event('input'));
 }else{
