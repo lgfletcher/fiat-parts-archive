@@ -79,7 +79,8 @@
 </head>
 <body>
 <header>
-  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.1 — EDITABLE</span></h1>
+  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.2</span></h1>
+  <a href="library.html" class="ebtn" style="text-decoration:none">📚 Library</a>
   <button class="ebtn" id="ed-toggle" title="Toggle edit mode">✎ Edit</button>
   <button class="ebtn" id="ed-add" style="display:none" title="Drag a box on the drawing, then type the part number">＋ Add box</button>
   <button class="ebtn" id="ed-rot" style="display:none" title="Flag this page as rotated; fixed permanently at next rebuild">↻ Rotate</button>
@@ -158,7 +159,8 @@ D.categories.forEach(c=>{
   c.plates.forEach(tv=>{
     const p=plates[tv]; if(!p) return;
     const d=document.createElement('div');d.className='pl';d.dataset.tav=tv;
-    d.innerHTML=`<span class="t">${tv}${p.title?' — '+p.title.toLowerCase():''}</span><span class="np">${p.parts.length}</span>`;
+    const nm=p.title_en||p.title;
+    d.innerHTML=`<span class="t">${tv}${nm?' — '+nm.toLowerCase():''}</span><span class="np">${p.parts.length}</span>`;
     d.onclick=()=>load(tv);
     box.appendChild(d);
   });
@@ -178,7 +180,8 @@ function load(tav,selPn){
   closePop();
   document.querySelectorAll('.pl').forEach(e=>e.classList.toggle('active',e.dataset.tav===tav));
   document.getElementById('pb-tav').textContent='SGR. '+tav;
-  document.getElementById('pb-title').textContent=cur.title||'';
+  document.getElementById('pb-title').innerHTML=(cur.title_en||cur.title||'')+
+    (cur.title_en&&cur.title?` <span style="color:var(--dim);font-style:italic;font-size:12px">· ${cur.title}</span>`:'');
   document.getElementById('pb-src').textContent='Factory parts catalog · '+cur.img.replace('plates/','');
   stage.style.width=cur.w+'px';stage.style.height=cur.h+'px';
   const rot=(ED[tav]&&ED[tav].rotate)||0;

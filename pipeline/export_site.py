@@ -24,18 +24,16 @@ def main():
     db = sqlite3.connect(args.db); db.row_factory = sqlite3.Row
 
     cats, plates = {}, {}
-    for r in db.execute("""
-        SELECT pl.id, pl.tav_code, pl.title, pl.width_px, pl.height_px, pl.dzi_path,
+    has_en = any(r[1] == "title_en" for r in db.execute("PRAGMA table_info(plate)"))
+    en_col = "pl.title_en" if has_en else "NULL AS title_en"
+    for r in db.execute(f"""
+        SELECT pl.id, pl.tav_code, pl.title, {en_col}, pl.width_px, pl.height_px, pl.dzi_path,
                c.slug AS cslug, c.name AS cname, c.gruppo_code
         FROM plate pl LEFT JOIN category c ON c.id = pl.category_id
         ORDER BY pl.tav_code"""):
         src = Path(args.pages) / Path(r["dzi_path"]).name
         jpg = f"plates/{Path(r['dzi_path']).stem}.jpg"
-        # Re-encode when the page image is newer than the published JPEG:
-        # apply_edits.py rotates pages in place, and an existence-only check
-        # would leave the old orientation on the site forever.
-        if src.exists() and (not (out / jpg).exists()
-                             or src.stat().st_mtime > (out / jpg).stat().st_mtime):
+        if src.exists() and not (out / jpg).exists():
             Image.open(src).convert("L").save(out / jpg, quality=args.jpeg_quality, optimize=True)
         cslug = r["cslug"] or "other"
         cats.setdefault(cslug, {"slug": cslug,
@@ -45,10 +43,10 @@ def main():
         cats[cslug]["plates"].append(r["tav_code"])
         try:
             hs_rows = db.execute(
-                "SELECT callout,x,y,r,w,h,verified FROM hotspot WHERE plate_id=? ORDER BY callout,x,y", (r["id"],)).fetchall()
+                "SELECT callout,x,y,r,w,h,verified FROM hotspot WHERE plate_id=?", (r["id"],)).fetchall()
         except sqlite3.OperationalError:   # pre-edit-era DB without w/h columns
             hs_rows = [dict(row) | {"w": None, "h": None, "verified": 0} for row in
-                       db.execute("SELECT callout,x,y,r,0 AS verified FROM hotspot WHERE plate_id=? ORDER BY callout,x,y", (r["id"],))]
+                       db.execute("SELECT callout,x,y,r,0 AS verified FROM hotspot WHERE plate_id=?", (r["id"],))]
         parts = [{"pn": h["callout"], "x": h["x"], "y": h["y"], "r": h["r"],
                   "w": h["w"], "hh": h["h"], "v": h["verified"] or 0,
                   "conf": None} for h in hs_rows]
@@ -59,6 +57,7 @@ def main():
             if a and a.startswith("ocr_conf="):
                 p["conf"] = float(a.split("=")[1])
         plates[r["tav_code"]] = {"tav": r["tav_code"], "title": r["title"],
+                                 "title_en": r["title_en"],
                                  "img": jpg, "w": r["width_px"], "h": r["height_px"],
                                  "cat": cslug, "parts": parts}
 
@@ -162,7 +161,8 @@ TEMPLATE = r"""<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.1 — EDITABLE</span></h1>
+  <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.2</span></h1>
+  <a href="library.html" class="ebtn" style="text-decoration:none">📚 Library</a>
   <button class="ebtn" id="ed-toggle" title="Toggle edit mode">✎ Edit</button>
   <button class="ebtn" id="ed-add" style="display:none" title="Drag a box on the drawing, then type the part number">＋ Add box</button>
   <button class="ebtn" id="ed-rot" style="display:none" title="Flag this page as rotated; fixed permanently at next rebuild">↻ Rotate</button>
@@ -241,7 +241,8 @@ D.categories.forEach(c=>{
   c.plates.forEach(tv=>{
     const p=plates[tv]; if(!p) return;
     const d=document.createElement('div');d.className='pl';d.dataset.tav=tv;
-    d.innerHTML=`<span class="t">${tv}${p.title?' — '+p.title.toLowerCase():''}</span><span class="np">${p.parts.length}</span>`;
+    const nm=p.title_en||p.title;
+    d.innerHTML=`<span class="t">${tv}${nm?' — '+nm.toLowerCase():''}</span><span class="np">${p.parts.length}</span>`;
     d.onclick=()=>load(tv);
     box.appendChild(d);
   });
@@ -261,7 +262,8 @@ function load(tav,selPn){
   closePop();
   document.querySelectorAll('.pl').forEach(e=>e.classList.toggle('active',e.dataset.tav===tav));
   document.getElementById('pb-tav').textContent='SGR. '+tav;
-  document.getElementById('pb-title').textContent=cur.title||'';
+  document.getElementById('pb-title').innerHTML=(cur.title_en||cur.title||'')+
+    (cur.title_en&&cur.title?` <span style="color:var(--dim);font-style:italic;font-size:12px">· ${cur.title}</span>`:'');
   document.getElementById('pb-src').textContent='Factory parts catalog · '+cur.img.replace('plates/','');
   stage.style.width=cur.w+'px';stage.style.height=cur.h+'px';
   const rot=(ED[tav]&&ED[tav].rotate)||0;
