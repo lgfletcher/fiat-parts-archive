@@ -9,7 +9,9 @@ Then re-export the site:
     python3 pipeline/export_site.py --db fiat.db --pages archive/derived/factory_catalog/pages --out docs
 
 Rules:
-- 'b<i>' ids refer to the i-th OCR hotspot of that plate (creation order).
+- 'b<i>' ids refer to the i-th box as the viewer numbered them, which is
+  export_site.py's emission order (callout, x, y) — NOT hotspot id order.
+  Both queries must sort identically or edits land on the wrong boxes.
 - 'n...' ids are new, human-added boxes (verified by definition).
 - Edits carry verified=1 where the human ticked the box; a changed part
   number implies verified=1.
@@ -47,7 +49,7 @@ def main():
             print(f"!! plate {tav} not in DB — skipped"); continue
         pid = pl["id"]
         base = db.execute(
-            "SELECT id, callout FROM hotspot WHERE plate_id=? ORDER BY id", (pid,)).fetchall()
+            "SELECT id, callout FROM hotspot WHERE plate_id=? ORDER BY callout,x,y", (pid,)).fetchall()
 
         for hid, ov in (e.get("hs") or {}).items():
             if hid.startswith("b"):

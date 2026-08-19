@@ -159,6 +159,10 @@ CREATE TABLE hotspot (
     y         REAL NOT NULL,              -- centre y, 0..1
     r         REAL NOT NULL DEFAULT 0.02, -- radius, fraction of width
     verified  INTEGER DEFAULT 0,
+    -- declared after verified to match the column order apply_edits.py
+    -- produces when it ALTER TABLEs these onto an existing database
+    w         REAL,                       -- box width, fraction of page (edit mode)
+    h         REAL,                       -- box height, fraction of page (edit mode)
     -- one row per printed occurrence: the same callout can appear
     -- several times on one drawing, and each is separately clickable
     UNIQUE (plate_id, callout, x, y)

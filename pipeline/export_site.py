@@ -31,7 +31,11 @@ def main():
         ORDER BY pl.tav_code"""):
         src = Path(args.pages) / Path(r["dzi_path"]).name
         jpg = f"plates/{Path(r['dzi_path']).stem}.jpg"
-        if src.exists() and not (out / jpg).exists():
+        # Re-encode when the page image is newer than the published JPEG:
+        # apply_edits.py rotates pages in place, and an existence-only check
+        # would leave the old orientation on the site forever.
+        if src.exists() and (not (out / jpg).exists()
+                             or src.stat().st_mtime > (out / jpg).stat().st_mtime):
             Image.open(src).convert("L").save(out / jpg, quality=args.jpeg_quality, optimize=True)
         cslug = r["cslug"] or "other"
         cats.setdefault(cslug, {"slug": cslug,
@@ -41,10 +45,10 @@ def main():
         cats[cslug]["plates"].append(r["tav_code"])
         try:
             hs_rows = db.execute(
-                "SELECT callout,x,y,r,w,h,verified FROM hotspot WHERE plate_id=?", (r["id"],)).fetchall()
+                "SELECT callout,x,y,r,w,h,verified FROM hotspot WHERE plate_id=? ORDER BY callout,x,y", (r["id"],)).fetchall()
         except sqlite3.OperationalError:   # pre-edit-era DB without w/h columns
             hs_rows = [dict(row) | {"w": None, "h": None, "verified": 0} for row in
-                       db.execute("SELECT callout,x,y,r,0 AS verified FROM hotspot WHERE plate_id=?", (r["id"],))]
+                       db.execute("SELECT callout,x,y,r,0 AS verified FROM hotspot WHERE plate_id=? ORDER BY callout,x,y", (r["id"],))]
         parts = [{"pn": h["callout"], "x": h["x"], "y": h["y"], "r": h["r"],
                   "w": h["w"], "hh": h["h"], "v": h["verified"] or 0,
                   "conf": None} for h in hs_rows]
