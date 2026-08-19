@@ -14,17 +14,21 @@ db.row_factory = sqlite3.Row
 db.execute("UPDATE plate SET title=NULL WHERE title LIKE 'VALE PER%' OR length(title)<6")
 db.commit()
 
+# Counted as correlated subqueries, not joins: one callout can own
+# several hotspots, and joining both tables at once would multiply the
+# low-confidence tally by the number of times the callout was printed.
 rows = db.execute("""
   SELECT pl.tav_code, pl.title, pp.file_path,
-         COUNT(h.id) AS n_hotspots,
-         SUM(CASE WHEN pu.applicability LIKE 'ocr_conf=%'
-                   AND CAST(substr(pu.applicability,10) AS REAL) < 55 THEN 1 ELSE 0 END) AS n_lowconf,
+         (SELECT COUNT(*) FROM hotspot h
+           WHERE h.plate_id = pl.id) AS n_hotspots,
+         (SELECT COUNT(*) FROM part_usage pu
+           WHERE pu.plate_id = pl.id
+             AND pu.applicability LIKE 'ocr_conf=%'
+             AND CAST(substr(pu.applicability,10) AS REAL) < 55) AS n_lowconf,
          CASE WHEN pl.tav_code LIKE 'p0%' THEN 1 ELSE 0 END AS tav_missing,
          CASE WHEN pl.title IS NULL THEN 1 ELSE 0 END AS title_missing
   FROM plate pl
   JOIN plate_page pp ON pp.plate_id = pl.id
-  LEFT JOIN hotspot h ON h.plate_id = pl.id
-  LEFT JOIN part_usage pu ON pu.plate_id = pl.id AND pu.callout = h.callout
   GROUP BY pl.id
   ORDER BY tav_missing DESC, (n_hotspots=0) DESC, n_lowconf DESC
 """).fetchall()

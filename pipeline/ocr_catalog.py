@@ -9,9 +9,11 @@ Usage:
         --catalog-title "Fiat X1/9 Factory parts catalog (8-1974)" \
         --vehicle x19 --out archive/derived/factory_catalog --db fiat.db
 
-Idempotent: re-running skips pages whose images already exist and
-re-OCRs only missing plates. All OCR output lands with verified=0 —
-nothing is trusted until a human pass confirms it.
+Idempotent: re-running skips pages whose images already exist, and
+every write is INSERT OR IGNORE against a natural key, so re-running
+over a populated database converges instead of accumulating rows.
+All OCR output lands with verified=0 — nothing is trusted until a
+human pass confirms it.
 """
 import argparse, csv, io, os, re, sqlite3, subprocess, sys
 from pathlib import Path
@@ -190,7 +192,7 @@ def main():
                    (cid, cat_id, tav, title, "ok", W, H, f"pages/p{p:03d}.png"))
         pid = db.execute("SELECT id FROM plate WHERE catalog_id=? AND tav_code=?",
                          (cid, tav)).fetchone()[0]
-        db.execute("""INSERT INTO plate_page(plate_id,source_id,page_kind,file_path,frame_ref,ocr_status)
+        db.execute("""INSERT OR IGNORE INTO plate_page(plate_id,source_id,page_kind,file_path,frame_ref,ocr_status)
                       VALUES(?,?,?,?,?,?)""",
                    (pid, sid, "diagram", f"pages/p{p:03d}.png", f"pdf p.{p}", "done"))
 
@@ -199,7 +201,7 @@ def main():
             db.execute("INSERT OR IGNORE INTO part(part_no,part_no_raw) VALUES(?,?)",
                        (h["pn"], h["pn"]))
             pt = db.execute("SELECT id FROM part WHERE part_no=?", (h["pn"],)).fetchone()[0]
-            db.execute("""INSERT INTO part_usage(part_id,plate_id,callout,qty,applicability,verified)
+            db.execute("""INSERT OR IGNORE INTO part_usage(part_id,plate_id,callout,qty,applicability,verified)
                           VALUES(?,?,?,?,?,0)""",
                        (pt, pid, h["pn"], None, f"ocr_conf={h['conf']}"))
             db.execute("""INSERT OR IGNORE INTO hotspot(plate_id,callout,x,y,r,verified)

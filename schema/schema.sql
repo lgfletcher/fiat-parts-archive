@@ -110,7 +110,8 @@ CREATE TABLE plate_page (
     file_path  TEXT NOT NULL,             -- archive/raw/... original scan
     frame_ref  TEXT,                      -- fiche grid ref, e.g. 'C7'
     ocr_status TEXT DEFAULT 'pending'
-               CHECK (ocr_status IN ('pending','done','verified','n/a'))
+               CHECK (ocr_status IN ('pending','done','verified','n/a')),
+    UNIQUE (plate_id, file_path)
 );
 
 -- ------------------------------------------------------------
@@ -138,7 +139,11 @@ CREATE TABLE part_usage (
     qty           TEXT,                   -- kept as text: '2', 'AR' (as required)
     applicability TEXT,                   -- qualifier from catalog: 'fino al telaio ...'
     variant_id    INTEGER REFERENCES vehicle_variant(id),
-    verified      INTEGER DEFAULT 0       -- OCR checked by a human
+    verified      INTEGER DEFAULT 0,      -- OCR checked by a human
+    -- A usage is a catalog fact: this part, on this plate, as this
+    -- callout. A callout printed several times on the drawing is one
+    -- usage with several hotspots, not several usages.
+    UNIQUE (part_id, plate_id, callout)
 );
 
 CREATE INDEX idx_usage_part  ON part_usage(part_id);
@@ -154,7 +159,9 @@ CREATE TABLE hotspot (
     y         REAL NOT NULL,              -- centre y, 0..1
     r         REAL NOT NULL DEFAULT 0.02, -- radius, fraction of width
     verified  INTEGER DEFAULT 0,
-    UNIQUE (plate_id, callout)
+    -- one row per printed occurrence: the same callout can appear
+    -- several times on one drawing, and each is separately clickable
+    UNIQUE (plate_id, callout, x, y)
 );
 
 -- Aftermarket / equivalent / superseding number cross-references.
