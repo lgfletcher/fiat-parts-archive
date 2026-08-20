@@ -35,7 +35,9 @@ def sh(cmd):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pdf", required=True)
+    ap.add_argument("--pdf", help="source PDF (mutually exclusive with --imgdir)")
+    ap.add_argument("--imgdir", help="directory of pre-scanned page images (jpg/png), "
+                                     "sorted by path; folder/[NN.…] names become sections")
     ap.add_argument("--slug", required=True)
     ap.add_argument("--title", required=True)
     ap.add_argument("--doc-type", default="service_manual")
@@ -46,6 +48,9 @@ def main():
     ap.add_argument("--last", type=int, default=0)
     args = ap.parse_args()
 
+    if not args.pdf and not args.imgdir:
+        ap.error("need --pdf or --imgdir")
+    src_name = Path(args.pdf or args.imgdir).name
     out = Path(args.out) / args.slug
     out.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(args.db)
@@ -53,8 +58,8 @@ def main():
 
     vid = db.execute("SELECT id FROM vehicle WHERE code=?", (args.vehicle,)).fetchone()[0]
     db.execute("""INSERT OR IGNORE INTO source(kind,title) VALUES('pdf',?)""",
-               (Path(args.pdf).name,))
-    sid = db.execute("SELECT id FROM source WHERE title=?", (Path(args.pdf).name,)).fetchone()[0]
+               (src_name,))
+    sid = db.execute("SELECT id FROM source WHERE title=?", (src_name,)).fetchone()[0]
     row = db.execute("SELECT id FROM document WHERE url_or_path=?", (args.slug,)).fetchone()
     if row:
         did = row[0]
@@ -64,8 +69,16 @@ def main():
                    (sid, vid, args.doc_type, args.title, args.slug))
         did = db.execute("SELECT id FROM document WHERE url_or_path=?", (args.slug,)).fetchone()[0]
 
-    info = sh(["pdfinfo", args.pdf]).stdout
-    npages = int(re.search(r"Pages:\s+(\d+)", info).group(1))
+    img_src = None      # imgdir mode: page_no -> (source image, folder label)
+    if args.imgdir:
+        files = sorted(p for p in Path(args.imgdir).rglob("*")
+                       if p.suffix.lower() in (".jpg", ".jpeg", ".png")
+                       and not p.name.startswith("._"))
+        img_src = {i + 1: f for i, f in enumerate(files)}
+        npages = len(files)
+    else:
+        info = sh(["pdfinfo", args.pdf]).stdout
+        npages = int(re.search(r"Pages:\s+(\d+)", info).group(1))
     last = args.last or npages
 
     known_parts = {r[0] for r in db.execute("SELECT part_no FROM part")}
@@ -77,10 +90,14 @@ def main():
         if have and jpg.exists():
             continue
         if not jpg.exists():
-            sh(["pdftoppm", "-jpeg", "-r", str(DPI), "-jpegopt", "quality=72",
-                "-f", str(p), "-l", str(p), args.pdf, str(out / "tmp")])
-            produced = list(out.glob("tmp-*.jpg"))
-            produced[0].rename(jpg)
+            if img_src:
+                from PIL import Image
+                Image.open(img_src[p]).convert("L").save(jpg, quality=78)
+            else:
+                sh(["pdftoppm", "-jpeg", "-r", str(DPI), "-jpegopt", "quality=72",
+                    "-f", str(p), "-l", str(p), args.pdf, str(out / "tmp")])
+                produced = list(out.glob("tmp-*.jpg"))
+                produced[0].rename(jpg)
         r = subprocess.run(["tesseract", str(jpg), "stdout", "-l", "eng", "--psm", "3"],
                            capture_output=True, text=True)
         text = r.stdout.strip()
@@ -97,6 +114,33 @@ def main():
             db.commit()
             print(f"page {p}/{last}", flush=True)
     db.commit()
+
+    # imgdir mode: folder / "[NN.…]" filename codes give sections for free
+    if img_src:
+        db.execute("""CREATE TABLE IF NOT EXISTS document_section (
+            id INTEGER PRIMARY KEY, document_id INTEGER, block TEXT, code TEXT,
+            title TEXT, page_from INTEGER, page_to INTEGER, verified INTEGER DEFAULT 0)""")
+        db.execute("DELETE FROM document_section WHERE document_id=?", (did,))
+        runs = []
+        for p in sorted(img_src):
+            f = img_src[p]
+            m = re.search(r"\[(\d{2})", f.name)
+            code = m.group(1) if m else ""
+            label = re.sub(r"^\d+_|X19[-_]?|ServiceManual[-_]?", "", f.parent.name)
+            label = re.sub(r"[_\-]+", " ", label).strip().title() or "Pages"
+            key = (code, label)
+            if runs and runs[-1][0] == key:
+                runs[-1][2] = p
+            else:
+                runs.append([key, p, p])
+        for (code, label), a, b in runs:
+            db.execute("""INSERT INTO document_section
+                          (document_id,block,code,title,page_from,page_to,verified)
+                          VALUES(?,?,?,?,?,?,1)""",
+                       (did, "Sections", code, label, a, b))
+        db.commit()
+        print(f"sections from folders: {len(runs)}")
+
     total = db.execute("SELECT COUNT(*) FROM document_page WHERE document_id=?", (did,)).fetchone()[0]
     print(f"DONE document {args.slug}: {total} pages in DB")
 

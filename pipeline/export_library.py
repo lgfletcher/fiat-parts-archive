@@ -15,6 +15,8 @@ VEHICLE_NAMES = {"x19": "Fiat X1/9", "124": "Fiat 124", "125": "Fiat 125",
 
 def classify(name):
     n = name.lower()
+    if n.endswith((".jpg", ".jpeg", ".png", ".gif")) or "colour" in n or "color" in n or "paint" in n or "chip" in n:
+        return "Paint & colour charts"
     if "parts" in n and ("catalog" in n or "list" in n): return "Parts catalogues"
     if "wiring" in n or "electrical" in n: return "Wiring & electrical"
     if "owner" in n or "ownes" in n: return "Owner's manuals"
@@ -54,7 +56,7 @@ def main():
 
     groups = {}   # vehicle -> category -> [(name, size, url)]
     for f in sorted(Path(args.raw).rglob("*")):
-        if not f.is_file() or f.name.startswith(".") or f.suffix.lower() == ".md":
+        if not f.is_file() or f.name.startswith((".", "._")) or f.suffix.lower() == ".md":
             continue
         veh = f.relative_to(args.raw).parts[0]
         url = (f"https://github.com/{args.repo}/raw/{args.branch}/"

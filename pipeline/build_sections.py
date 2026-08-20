@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS document_topic (
 """
 
 HEAD_RE = re.compile(r"Section\s*N[o0]\.?\s*(\d{2})")
+# 1979-82 USA manual style: every page prints "Page 10-128" (section-page)
+PAGE_RE = re.compile(r"Page\s+(\d{2})-\d{1,3}\b")
 YEAR_RE = re.compile(r"\b(19[78]\d)\b")
 
 def topic_ok(ln):
@@ -101,6 +103,11 @@ def main():
                               WHERE document_id=? ORDER BY page_no""", (did,)).fetchall()
         if not pages:
             continue
+        # don't clobber human-verified or folder-derived sections
+        if db.execute("""SELECT 1 FROM document_section
+                         WHERE document_id=? AND verified=1 LIMIT 1""", (did,)).fetchone():
+            print(f"{title}: sections verified/curated — skipped")
+            continue
         db.execute("""DELETE FROM document_topic WHERE section_id IN
                       (SELECT id FROM document_section WHERE document_id=?)""", (did,))
         db.execute("DELETE FROM document_section WHERE document_id=?", (did,))
@@ -110,7 +117,7 @@ def main():
         for pno, txt in pages:
             lines = (txt or "").split("\n")
             head = "\n".join(lines[:4])
-            m = HEAD_RE.search(head)
+            m = HEAD_RE.search(head) or PAGE_RE.search(head)
             y = YEAR_RE.search(head)
             first = next((l.strip() for l in lines if l.strip()), "")
             banner = first if (len(first) > 12 and first.isupper()
