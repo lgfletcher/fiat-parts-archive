@@ -176,6 +176,7 @@ TEMPLATE = r"""<!DOCTYPE html>
 <header>
   <h1>FIAT CLASSIC PARTS ARCHIVE<span class="v">v3.2</span></h1>
   <a href="library.html" class="ebtn" style="text-decoration:none">📚 Library</a>
+  <a href="wiring.html" class="ebtn" style="text-decoration:none" title="Wiring diagrams">⚡ Wiring</a>
   <a href="paint.html" class="ebtn" style="text-decoration:none" title="Paint codes & colour charts">🎨 Paint</a>
   <button class="ebtn" id="ed-toggle" title="Toggle edit mode">✎ Edit</button>
   <button class="ebtn" id="ed-add" style="display:none" title="Drag a box on the drawing, then type the part number">＋ Add box</button>

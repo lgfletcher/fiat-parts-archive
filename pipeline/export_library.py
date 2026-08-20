@@ -40,7 +40,8 @@ def main():
                     help="optional fiat.db — adds 'open in viewer' links for ingested docs")
     args = ap.parse_args()
 
-    viewers = {}   # filename -> slug
+    viewers = {}   # filename -> doc.html slug
+    wirings = {}   # filename -> wiring.html slug
     if args.db:
         import sqlite3
         db = sqlite3.connect(args.db)
@@ -51,6 +52,14 @@ def main():
                 WHERE d.hosted=1 AND EXISTS
                   (SELECT 1 FROM document_page dp WHERE dp.document_id=d.id)"""):
                 viewers[fn] = slug
+        except sqlite3.OperationalError:
+            pass
+        try:
+            for fn, slug in db.execute("""
+                SELECT s.title, wd.slug FROM wiring_diagram wd
+                JOIN source s ON s.id=wd.source_id
+                WHERE EXISTS (SELECT 1 FROM wd_sheet sh WHERE sh.diagram_id=wd.id)"""):
+                wirings[fn] = slug
         except sqlite3.OperationalError:
             pass
 
@@ -72,8 +81,13 @@ def main():
             rows.append(f'<h3>{cat}</h3><ul>')
             for name, size, url in groups[veh][cat]:
                 pretty = html.escape(re.sub(r"[_]+", " ", name))
-                view = (f' <a class="vw" href="doc.html?d={viewers[name]}">▶ open in viewer</a>'
-                        if name in viewers else '')
+                if name in wirings:
+                    view = (f' <a class="vw" href="wiring.html?d={wirings[name]}">'
+                            f'▶ open in wiring viewer</a>')
+                elif name in viewers:
+                    view = f' <a class="vw" href="doc.html?d={viewers[name]}">▶ open in viewer</a>'
+                else:
+                    view = ''
                 rows.append(f'<li><span><a href="{url}">{pretty}</a>{view}</span>'
                             f'<span class="sz">{human(size)}</span></li>')
             rows.append('</ul>')
@@ -102,6 +116,7 @@ def main():
 </style></head><body>
 <header><h1>FIAT CLASSIC PARTS ARCHIVE — DOCUMENT LIBRARY</h1>
 <a href="index.html">← Parts catalog viewer</a>
+<a href="wiring.html">⚡ Wiring diagrams</a>
 <a href="paint.html">🎨 Paint codes &amp; colour charts</a></header>
 <main>
 <div class="note">Original scans preserved as-is. Files download directly from this project's GitHub repository.

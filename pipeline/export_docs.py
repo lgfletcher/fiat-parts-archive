@@ -133,7 +133,7 @@ TEMPLATE = r"""<!DOCTYPE html>
  .none{padding:12px 14px;color:var(--dim);font-size:12.5px}
 </style></head><body>
 <header>
-  <a href="library.html">← Library</a><a href="index.html">Parts viewer</a>
+  <a href="library.html">← Library</a><a href="index.html">Parts viewer</a><a href="wiring.html">Wiring</a>
   <h1 id="title">…</h1>
   <div class="pgnav">
     <button id="prev">‹</button>

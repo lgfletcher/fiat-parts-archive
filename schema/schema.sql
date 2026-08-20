@@ -264,3 +264,107 @@ JOIN catalog c    ON c.id = pl.catalog_id
 JOIN vehicle v    ON v.id = c.vehicle_id
 LEFT JOIN category cat ON cat.id = pl.category_id
 ORDER BY v.sort_order, pl.tav_code;
+
+-- ============================================================
+-- v0.3 addition (2026-08-20) — WIRING DIAGRAMS
+--
+-- The wiring viewer is a *registered overlay*: the factory scan is
+-- the base layer and traced wires / component boxes live on top of
+-- it in the scan's own coordinate space. Phase 1 fills wiring_diagram
+-- and wd_sheet (the raster layer); the phase-2 editor fills
+-- wd_component / wd_wire / wd_circuit.
+--
+-- All overlay coordinates are normalized 0..1 against the sheet
+-- image, exactly like `hotspot`, so re-rendering a sheet at a
+-- different resolution never invalidates a trace.
+--
+-- Canonical DDL lives in pipeline/ingest_wiring.py (CREATE TABLE IF
+-- NOT EXISTS, applied on every run); this copy keeps schema.sql a
+-- complete picture of the database.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS wiring_diagram (
+    id           INTEGER PRIMARY KEY,
+    slug         TEXT NOT NULL UNIQUE,
+    vehicle_id   INTEGER REFERENCES vehicle(id),
+    source_id    INTEGER REFERENCES source(id),
+    title        TEXT NOT NULL,
+    year_from    INTEGER,
+    year_to      INTEGER,
+    market       TEXT,
+    variant_note TEXT,
+    credit       TEXT,
+    pilot        INTEGER DEFAULT 0,   -- 1 = the sheet the overlay work targets
+    sort_order   INTEGER,
+    notes        TEXT
+);
+
+-- One page of a wiring PDF. 'master' sheets are the fold-out schematics.
+CREATE TABLE IF NOT EXISTS wd_sheet (
+    id         INTEGER PRIMARY KEY,
+    diagram_id INTEGER NOT NULL REFERENCES wiring_diagram(id),
+    sheet_no   INTEGER NOT NULL,          -- page order within the diagram
+    kind       TEXT NOT NULL DEFAULT 'page'
+               CHECK (kind IN ('master','page')),
+    label      TEXT,
+    file_path  TEXT NOT NULL,             -- relative to the wiring image root
+    width_px   INTEGER,
+    height_px  INTEGER,
+    native_w   INTEGER,                   -- embedded image size in the PDF
+    native_h   INTEGER,
+    ocr_text   TEXT,
+    UNIQUE (diagram_id, sheet_no)
+);
+
+-- ---- overlay layer (populated by the phase-2 editor; empty for now) -------
+CREATE TABLE IF NOT EXISTS wd_circuit (
+    id         INTEGER PRIMARY KEY,
+    diagram_id INTEGER REFERENCES wiring_diagram(id),
+    code       TEXT NOT NULL,
+    name       TEXT,
+    grp        TEXT,
+    descr      TEXT,
+    symptoms   TEXT,
+    tests      TEXT,
+    colour     TEXT,
+    conf       TEXT DEFAULT 'unknown'
+               CHECK (conf IN ('verified','typical','unknown')),
+    UNIQUE (diagram_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS wd_component (
+    id        INTEGER PRIMARY KEY,
+    sheet_id  INTEGER NOT NULL REFERENCES wd_sheet(id),
+    code      TEXT NOT NULL,              -- factory legend number
+    name      TEXT,
+    name_en   TEXT,
+    x REAL, y REAL, w REAL, h REAL,       -- normalized 0..1 box on the sheet
+    location_on_car TEXT,
+    terminals TEXT,
+    part_no   TEXT,
+    notes     TEXT,
+    conf      TEXT DEFAULT 'unknown'
+              CHECK (conf IN ('verified','typical','unknown')),
+    verified  INTEGER DEFAULT 0,
+    UNIQUE (sheet_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS wd_wire (
+    id          INTEGER PRIMARY KEY,
+    sheet_id    INTEGER NOT NULL REFERENCES wd_sheet(id),
+    label       TEXT,
+    colour_code TEXT,                     -- Fiat letters, e.g. 'RN', 'V'
+    gauge       TEXT,
+    from_component TEXT, from_pin TEXT,
+    to_component   TEXT, to_pin   TEXT,
+    path        TEXT,                     -- JSON [[ [x,y], ... ], ...] normalized
+    circuit_ids TEXT,                     -- comma-separated wd_circuit.code
+    conf        TEXT DEFAULT 'unknown'
+                CHECK (conf IN ('verified','typical','unknown')),
+    verified    INTEGER DEFAULT 0,
+    notes       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_wd_sheet_diagram ON wd_sheet(diagram_id);
+CREATE INDEX IF NOT EXISTS idx_wd_comp_sheet    ON wd_component(sheet_id);
+CREATE INDEX IF NOT EXISTS idx_wd_wire_sheet    ON wd_wire(sheet_id);
