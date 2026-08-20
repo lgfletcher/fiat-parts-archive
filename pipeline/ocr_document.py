@@ -38,6 +38,9 @@ def main():
     ap.add_argument("--pdf", help="source PDF (mutually exclusive with --imgdir)")
     ap.add_argument("--imgdir", help="directory of pre-scanned page images (jpg/png), "
                                      "sorted by path; folder/[NN.…] names become sections")
+    ap.add_argument("--source-name", help="archive filename this content came from "
+                                          "(e.g. the .zip in archive/raw) — used for the "
+                                          "library page's download/viewer matching")
     ap.add_argument("--slug", required=True)
     ap.add_argument("--title", required=True)
     ap.add_argument("--doc-type", default="service_manual")
@@ -50,7 +53,10 @@ def main():
 
     if not args.pdf and not args.imgdir:
         ap.error("need --pdf or --imgdir")
-    src_name = Path(args.pdf or args.imgdir).name
+    src_name = args.source_name or Path(args.pdf or args.imgdir).name
+    if args.imgdir and not args.source_name:
+        print("WARNING: --imgdir without --source-name — the library page matches "
+              "sources against archive/raw filenames; pass the originating zip's name.")
     out = Path(args.out) / args.slug
     out.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(args.db)
