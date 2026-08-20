@@ -100,7 +100,7 @@ def main():
         comps, wires, circuits = fetch_overlay(db, d["id"], sheet_ids)
         payload = {"slug": d["slug"], "title": d["title"],
                    "years": [d["year_from"], d["year_to"]], "market": d["market"],
-                   "variant": d["variant_note"], "credit": d["credit"],
+                   "variant": d["variant_note"],
                    "pilot": bool(d["pilot"]), "notes": d["notes"],
                    "sheets": sheets, "components": comps, "wires": wires,
                    "circuits": circuits}
@@ -266,8 +266,6 @@ TEMPLATE = r"""<!DOCTYPE html>
       <button class="tab" data-tab="search">Search</button>
     </div>
     <div id="panel"></div>
-    <div class="credit">Scans courtesy of
-      <a href="https://x19.com.au/" target="_blank" rel="noopener">x19.com.au</a>.</div>
   </aside>
 </div>
 <script src="wiring_index.js"></script>
