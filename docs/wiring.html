@@ -103,12 +103,51 @@
  .credit a{color:var(--accent2)}
  /* overlay elements — phase 2 fills these in */
  .wire-hit{fill:none;stroke:transparent;stroke-width:18;cursor:pointer}
- .wire-line{fill:none;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}
+ .wire-line{fill:none;stroke-linejoin:round;stroke-linecap:round;pointer-events:none;
+   vector-effect:non-scaling-stroke}
  .wire.dim{opacity:.12}
+ .wire-line.derived{stroke-dasharray:9 7;opacity:.75}
  .wire.sel .wire-line{stroke-width:7}
- .comp rect{fill:rgba(232,184,75,.08);stroke:var(--accent);stroke-width:2;cursor:pointer}
+ .comp rect{fill:rgba(232,184,75,.08);stroke:var(--accent);stroke-width:2;cursor:pointer;
+   vector-effect:non-scaling-stroke}
  .comp.dim{opacity:.12}
  .comp.sel rect{fill:rgba(232,184,75,.24);stroke-width:3.5}
+ .comp text{font-size:13px;fill:var(--accent);pointer-events:none;font-weight:600}
+ /* wire ends — the transcription unit */
+ .end circle{fill:rgba(127,180,216,.25);stroke:var(--accent2);stroke-width:1.5;cursor:pointer;
+   vector-effect:non-scaling-stroke}
+ .end.ocr circle{stroke-dasharray:3 2}
+ .end.bad circle{stroke:#e5484d;fill:rgba(229,72,77,.2)}
+ .end.sel circle{stroke-width:3.5;fill:rgba(232,184,75,.35);stroke:var(--accent)}
+ .end text{font-size:11px;fill:var(--accent2);pointer-events:none}
+ .end.dim,.comp.dim,.wire.dim{opacity:.12}
+ #ovl.editing .end circle{cursor:pointer}
+ #band{fill:rgba(232,184,75,.12);stroke:var(--accent);stroke-width:2;stroke-dasharray:5 4;
+   vector-effect:non-scaling-stroke}
+ /* edit toolbar */
+ #tools{position:absolute;left:14px;top:14px;z-index:6;display:none;gap:6px;
+   background:rgba(37,41,50,.95);border:1px solid var(--line);border-radius:8px;padding:6px}
+ #tools.on{display:flex}
+ #tools button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+   border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer}
+ #tools button.on{background:var(--accent);color:#1c1f26;border-color:var(--accent);font-weight:600}
+ #tools .sep{width:1px;background:var(--line);margin:0 2px}
+ .ebar{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+ .ebar button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+   border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer}
+ .ebar button.primary{background:var(--accent);color:#1c1f26;border-color:var(--accent);font-weight:600}
+ .frm label{display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;
+   color:var(--dim);margin:8px 0 3px}
+ .frm input,.frm select,.frm textarea{width:100%;background:var(--panel2);color:var(--txt);
+   border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;font-family:inherit}
+ .frm .two{display:flex;gap:8px}.frm .two>div{flex:1}
+ .stat{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0}
+ .stat b{font-family:ui-monospace,monospace}
+ .stat.good b{color:var(--ok)}.stat.bad b{color:#e5484d}
+ .prob{padding:5px 8px;margin:3px 0;background:#20242c;border-left:2px solid #e5484d;
+   border-radius:0 5px 5px 0;font-size:12px;cursor:pointer}
+ .prob:hover{background:var(--panel2)}
+ .prob b{font-family:ui-monospace,monospace;color:var(--accent)}
 </style></head><body>
 <header>
   <a href="library.html">← Library</a><a href="index.html">Parts viewer</a>
@@ -126,6 +165,13 @@
     <div class="zoomctl"><button id="z-in">+</button><button id="z-out">−</button>
       <button id="z-fit" style="font-size:12px">fit</button></div>
     <div id="stage"><img id="base" alt=""><svg id="ovl"></svg></div>
+    <div id="tools">
+      <button data-tool="select" class="on">Select</button>
+      <button data-tool="comp">+ Component</button>
+      <button data-tool="end">+ Wire end</button>
+      <span class="sep"></span>
+      <button id="t-del">Delete</button>
+    </div>
     <div id="layers">
       <div class="row"><label for="baseop">Factory scan</label>
         <input id="baseop" type="range" min="0" max="100" value="100"></div>
@@ -141,6 +187,7 @@
       <button class="tab" data-tab="colours">Colours</button>
       <button class="tab" data-tab="fuses">Fuses</button>
       <button class="tab" data-tab="search">Search</button>
+      <button class="tab" id="tab-edit" data-tab="edit" style="display:none">Edit</button>
     </div>
     <div id="panel"></div>
   </aside>
@@ -209,59 +256,142 @@ function show(i){
   ovl.setAttribute('width',s.w);ovl.setAttribute('height',s.h);
   ovl.setAttribute('viewBox',`0 0 ${s.w} ${s.h}`);
   sel=null;
+  if(ED)loadWork();
   drawOverlay();
   fit();
   buildNav();
   if(tab==='sheet')renderPanel();
-  history.replaceState(null,'','?d='+slug+'&s='+s.n);
+  // keep edit=1 in the URL: dropping it silently left edit mode on reload
+  history.replaceState(null,'','?d='+slug+'&s='+s.n+(ED?'&edit=1':''));
 }
 /* ---- overlay (empty until phase 2 tracing lands in fiat.db) ---- */
 function colourHex(code){
   if(!code||code==='?')return '#7f8896';
   const c=(window.WIRE_COLOURS||{})[code[0]];return c?c.hex:'#7f8896';
 }
+/* ---------------------------------------------------------------------------
+   Overlay rendering. Three kinds of thing live on a sheet:
+     component  a named box round a numbered callout
+     wire end   one stub: a wire number + colour code at a terminal
+     wire       derived by pairing two ends with the same number; may also
+                carry a hand-traced polyline
+   In edit mode the working copy (W.comps / W.ends) is what gets drawn, so an
+   edit shows up immediately without a round trip through the database.
+--------------------------------------------------------------------------- */
+function sheetComps(){return ED?W.comps:(dg.components||[]).filter(c=>c.s===dg.sheets[cur].n);}
+function sheetEnds(){return ED?W.ends:(dg.ends||[]).filter(e=>e.s===dg.sheets[cur].n);}
+function inFocus(circuits){return !focusCircuit||(circuits||[]).includes(focusCircuit);}
+function endCounts(){
+  const c={};sheetEnds().forEach(e=>{const k=(e.no||'').trim();if(k)c[k]=(c[k]||0)+1;});return c;
+}
 function drawOverlay(){
   const s=dg.sheets[cur];
   ovl.innerHTML='';
+  ovl.classList.toggle('editing',ED);
   const wires=(dg.wires||[]).filter(w=>w.s===s.n);
-  const comps=(dg.components||[]).filter(c=>c.s===s.n);
+  const comps=sheetComps(), ends=sheetEnds(), counts=endCounts();
+  const compCircuits={};
+  wires.forEach(w=>{(w.circuits||[]).forEach(cc=>{
+    [w.from,w.to].forEach(k=>{if(k){(compCircuits[k]=compCircuits[k]||new Set()).add(cc);}});});});
+
+  // A derived wire has connectivity but no geometry. Rather than leave it
+  // invisible, draw a dashed straight run between its two ends: it is honestly
+  // not the route the loom takes, and it is dashed to say so, but it makes the
+  // netlist visible and clickable the moment it is transcribed.
+  const endsByNo={};
+  ends.forEach(e=>{const k=(e.no||'').trim();if(k)(endsByNo[k]=endsByNo[k]||[]).push(e);});
   wires.forEach((w,i)=>{
-    (w.path||[]).forEach(seg=>{
+    let segs=w.path||[];
+    let derived=false;
+    if(!segs.length){
+      const g2=endsByNo[(w.label||'').trim()]||[];
+      if(g2.length===2){segs=[[[g2[0].x,g2[0].y],[g2[1].x,g2[1].y]]];derived=true;}
+    }
+    segs.forEach(seg=>{
       if(!seg||seg.length<2)return;
       const d='M'+seg.map(p=>`${(p[0]*s.w).toFixed(1)},${(p[1]*s.h).toFixed(1)}`).join('L');
-      const g=document.createElementNS('http://www.w3.org/2000/svg','g');
-      g.setAttribute('class','wire');g.dataset.i=i;
-      const hit=document.createElementNS('http://www.w3.org/2000/svg','path');
-      hit.setAttribute('d',d);hit.setAttribute('class','wire-hit');
-      const ln=document.createElementNS('http://www.w3.org/2000/svg','path');
-      ln.setAttribute('d',d);ln.setAttribute('class','wire-line');
+      const g=mk('g');g.setAttribute('class','wire'+(inFocus(w.circuits)?'':' dim'));
+      g.dataset.i=i;
+      const hit=mk('path');hit.setAttribute('d',d);hit.setAttribute('class','wire-hit');
+      const ln=mk('path');ln.setAttribute('d',d);
+      ln.setAttribute('class','wire-line'+(derived?' derived':''));
       ln.setAttribute('stroke',colourHex(w.col));
       ln.setAttribute('stroke-width',w.gauge==='heavy'?7:w.gauge==='med'?5:3.5);
       g.appendChild(hit);g.appendChild(ln);
-      g.onclick=e=>{e.stopPropagation();sel={kind:'wire',data:w};tab='sheet';renderPanel();};
+      g.onclick=e=>{e.stopPropagation();sel={kind:'wire',data:w};tab='sheet';syncTabs();renderPanel();};
       ovl.appendChild(g);
     });
   });
-  comps.forEach(c=>{
+
+  comps.forEach((c,idx)=>{
     if(c.x==null)return;
-    const g=document.createElementNS('http://www.w3.org/2000/svg','g');
-    g.setAttribute('class','comp');
-    const r=document.createElementNS('http://www.w3.org/2000/svg','rect');
+    const cf=compCircuits[c.code];
+    const g=mk('g');
+    g.setAttribute('class','comp'+((!focusCircuit||(cf&&cf.has(focusCircuit)))?'':' dim')
+      +(sel&&sel.kind==='comp'&&sel.i===idx?' sel':''));
+    const r=mk('rect');
     r.setAttribute('x',c.x*s.w);r.setAttribute('y',c.y*s.h);
     r.setAttribute('width',(c.w||0.02)*s.w);r.setAttribute('height',(c.h||0.02)*s.h);
-    r.setAttribute('rx',4);
-    g.appendChild(r);
-    g.onclick=e=>{e.stopPropagation();sel={kind:'comp',data:c};tab='sheet';renderPanel();};
+    r.setAttribute('rx',4);g.appendChild(r);
+    if(c.code){const t=mk('text');
+      t.setAttribute('x',c.x*s.w);t.setAttribute('y',c.y*s.h);
+      t.textContent=c.code;g.appendChild(t);}
+    g.onclick=e=>{e.stopPropagation();sel={kind:'comp',data:c,i:idx};
+      tab=ED?'edit':'sheet';syncTabs();renderPanel();drawOverlay();};
     ovl.appendChild(g);
   });
-  const n=wires.length+comps.length;
-  document.getElementById('ovlhint').textContent = n
-    ? `${comps.length} components, ${wires.length} wires traced on this sheet.`
-    : 'Nothing traced on this sheet yet — the overlay layer arrives in phase 2.';
-  ovl.style.display=n?'block':'none';
+
+  ends.forEach((e,idx)=>{
+    if(e.x==null)return;
+    const n=(counts[(e.no||'').trim()]||0);
+    const g=mk('g');
+    g.setAttribute('class','end'+(e.src==='ocr'?' ocr':'')+(n===2?'':' bad')
+      +(inFocus(e.circuits)?'':' dim')
+      +(sel&&sel.kind==='end'&&sel.i===idx?' sel':''));
+    const ci=mk('circle');
+    ci.setAttribute('cx',e.x*s.w);ci.setAttribute('cy',e.y*s.h);ci.setAttribute('r',9);
+    g.appendChild(ci);
+    const t=mk('text');
+    t.setAttribute('x',e.x*s.w);t.setAttribute('y',e.y*s.h);
+    t.textContent=(e.col?e.col+' ':'')+(e.no||'?');g.appendChild(t);
+    g.onclick=ev=>{ev.stopPropagation();sel={kind:'end',data:e,i:idx};
+      tab=ED?'edit':'sheet';syncTabs();renderPanel();drawOverlay();};
+    ovl.appendChild(g);
+  });
+
+  const n=wires.length+comps.length+ends.length;
+  const hint=document.getElementById('ovlhint');
+  if(ED){
+    const paired=Object.values(counts).filter(v=>v===2).length,
+          tot=Object.keys(counts).length;
+    hint.textContent=`${comps.length} components, ${ends.length} wire ends — `+
+      `${paired}/${tot} numbers pair cleanly.`;
+  }else{
+    hint.textContent = n
+      ? `${comps.length} components, ${ends.length} wire ends, ${wires.length} wires on this sheet.`
+      : 'Nothing recorded on this sheet yet. Open the editor with ?edit=1 to start.';
+  }
+  ovl.style.display=(n||ED)?'block':'none';
+  rescaleMarkers();
 }
 /* ---- pan / zoom ---- */
-function apply(){stage.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;}
+function apply(){
+  stage.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.s})`;
+  rescaleMarkers();
+}
+/* A hotspot on a 6106 px sheet viewed at "fit" is about 0.16 scale — a 9 px
+   circle would render at 1.5 px and be invisible. Markers are navigation aids,
+   so they get a constant SCREEN size; only their positions are in image space. */
+function rescaleMarkers(){
+  const k=1/Math.max(view.s,0.0001);
+  ovl.querySelectorAll('.end circle').forEach(c=>c.setAttribute('r',(7*k).toFixed(2)));
+  ovl.querySelectorAll('.end text').forEach(t=>{
+    t.setAttribute('font-size',(12*k).toFixed(2));
+    t.setAttribute('dx',(11*k).toFixed(2));t.setAttribute('dy',(4*k).toFixed(2));});
+  ovl.querySelectorAll('.comp text').forEach(t=>{
+    t.setAttribute('font-size',(14*k).toFixed(2));
+    t.setAttribute('dy',(-4*k).toFixed(2));});
+}
 function fit(){const s=dg.sheets[cur],r=viewer.getBoundingClientRect();
   view.s=Math.min(r.width/s.w,r.height/s.h)*.97;
   view.x=(r.width-s.w*view.s)/2;view.y=(r.height-s.h*view.s)/2;apply();}
@@ -309,6 +439,7 @@ function colourName(code){
 }
 function renderPanel(){
   if(!dg){panel.innerHTML='';return;}
+  if(tab==='edit')return renderEdit();
   if(tab==='sheet')return renderSheet();
   if(tab==='circuits')return renderCircuits();
   if(tab==='colours')return renderColours();
@@ -359,10 +490,13 @@ function renderSheet(){
     </table></div>
     <div class="sec"><h3>Overlay</h3><p>${
       (dg.wires||[]).length
-        ? (dg.wires||[]).length+' wires traced on this diagram.'
-        : 'No wires traced yet. Phase 1 publishes the scan itself; the traced, '+
-          'clickable overlay is built on top of these exact images in phase 2, '+
-          'so nothing here gets thrown away.'}</p></div>`;
+        ? `${(dg.wires||[]).length} wires on this diagram, from `+
+          `${(dg.ends||[]).length} transcribed wire ends. A dashed run is derived `+
+          `from the wire number printed at both ends — it shows what connects to `+
+          `what, not the route the loom actually takes.`
+        : 'Nothing transcribed on this diagram yet. Open it with <code>?edit=1</code> '+
+          'to box components and record wire ends; wires appear as soon as a number '+
+          'has been read at both of its ends.'}</p></div>`;
 }
 function renderCircuits(){
   const cs=dg.circuits||[];
@@ -370,7 +504,15 @@ function renderCircuits(){
     panel.innerHTML='<div class="none">No circuit notes recorded for this diagram yet. '+
       'The 1978 Australian sheet carries the seeded set — pick it in the list on the left.</div>';
     return;}
-  let h='',lastG=null;
+  let h='<div class="sec"><h3>Focus a circuit</h3>'+
+    '<select id="f-focus" style="width:100%;background:var(--panel2);color:var(--txt);'+
+    'border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px">'+
+    '<option value="">— show everything —</option>'+
+    cs.map(c=>`<option value="${esc(c.code)}"${focusCircuit===c.code?' selected':''}>`+
+      `${esc(c.name)}</option>`).join('')+'</select>'+
+    '<p style="margin-top:8px">Dims everything on the sheet that is not part of the '+
+    'selected circuit. Takes effect once wires are attached to circuits.</p></div>';
+  let lastG=null;
   cs.forEach((c,i)=>{
     if(c.grp!==lastG){lastG=c.grp;h+=`<div class="sec" style="padding-bottom:2px">`+
       `<h3 style="margin:0">${esc(c.grp)}</h3></div>`;}
@@ -387,6 +529,8 @@ function renderCircuits(){
        `</div></div>`;
   });
   panel.innerHTML=h;
+  const fs=document.getElementById('f-focus');
+  if(fs)fs.onchange=()=>{focusCircuit=fs.value||null;drawOverlay();};
   panel.querySelectorAll('[data-c]').forEach(e=>{
     e.onclick=()=>{const b=document.getElementById('cb'+e.dataset.c);
       b.style.display=b.style.display==='none'?'block':'none';};});
@@ -449,6 +593,242 @@ document.getElementById('q').addEventListener('input',()=>{
     renderPanel();},250);});
 viewer.addEventListener('click',e=>{
   if(e.target===viewer||e.target===base){sel=null;if(tab==='sheet')renderPanel();}});
+/* =========================================================================
+   EDIT MODE  —  wiring.html?edit=1
+   -------------------------------------------------------------------------
+   The pilot sheet encodes connectivity numerically: every wire number appears
+   at exactly two ends. So the job is not to trace pixels, it is to transcribe
+   ends — and "does every number appear exactly twice" is a free, continuous
+   correctness check that runs while you work.
+
+   Work in progress is kept in localStorage per (diagram, sheet) so a reload
+   never costs you a session. Export writes a JSON snapshot of the whole sheet,
+   which pipeline/apply_wiring_edits.py loads into fiat.db.
+========================================================================= */
+const ED=params.get('edit')==='1';
+let tool='select', W={comps:[],ends:[]}, focusCircuit=null;
+function mk(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
+function syncTabs(){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===tab));
+}
+function storeKey(){return 'wiring-edit:'+slug+':'+dg.sheets[cur].n;}
+function saveWork(){
+  try{localStorage.setItem(storeKey(),JSON.stringify(W));}catch(err){/* private mode, quota */}
+}
+function loadWork(){
+  const s=dg.sheets[cur];
+  W={comps:(dg.components||[]).filter(c=>c.s===s.n).map(c=>Object.assign({},c)),
+     ends:(dg.ends||[]).filter(e=>e.s===s.n).map(e=>Object.assign({},e))};
+  try{
+    const raw=localStorage.getItem(storeKey());
+    if(raw){const o=JSON.parse(raw);
+      if(o&&Array.isArray(o.comps)&&Array.isArray(o.ends))W=o;}
+  }catch(err){/* ignore a corrupt draft rather than lose the session */}
+}
+/* screen -> image coordinates, through the stage transform */
+function toImg(ev){
+  const r=viewer.getBoundingClientRect(),s=dg.sheets[cur];
+  return {x:((ev.clientX-r.left)-view.x)/view.s/s.w,
+          y:((ev.clientY-r.top )-view.y)/view.s/s.h};
+}
+if(ED){
+  document.getElementById('tools').classList.add('on');
+  document.getElementById('tab-edit').style.display='';
+  document.title='EDIT — '+document.title;
+  document.querySelectorAll('#tools [data-tool]').forEach(b=>{
+    b.onclick=()=>{tool=b.dataset.tool;
+      document.querySelectorAll('#tools [data-tool]').forEach(x=>
+        x.classList.toggle('on',x===b));};});
+  document.getElementById('t-del').onclick=deleteSelected;
+  document.addEventListener('keydown',ev=>{
+    if(ev.target.tagName==='INPUT'||ev.target.tagName==='TEXTAREA')return;
+    if(ev.key==='Delete'||ev.key==='Backspace'){ev.preventDefault();deleteSelected();}
+    if(ev.key==='1')document.querySelector('[data-tool=select]').click();
+    if(ev.key==='2')document.querySelector('[data-tool=comp]').click();
+    if(ev.key==='3')document.querySelector('[data-tool=end]').click();
+  });
+}
+function deleteSelected(){
+  if(!ED||!sel)return;
+  if(sel.kind==='comp')W.comps.splice(sel.i,1);
+  else if(sel.kind==='end')W.ends.splice(sel.i,1);
+  else return;
+  sel=null;saveWork();drawOverlay();renderPanel();
+}
+/* ---- drawing: component box by drag, wire end by click ---- */
+let band=null;
+viewer.addEventListener('mousedown',ev=>{
+  if(!ED||tool==='select')return;
+  if(ev.target.closest('.zoomctl')||ev.target.closest('#layers')||ev.target.closest('#tools'))return;
+  ev.stopPropagation();
+  const p=toImg(ev);
+  if(tool==='end'){
+    W.ends.push({no:'',col:'',comp:'',pin:'',circuits:[],
+                 x:+p.x.toFixed(6),y:+p.y.toFixed(6),
+                 src:'manual',conf:'unknown',v:0});
+    sel={kind:'end',data:W.ends[W.ends.length-1],i:W.ends.length-1};
+    saveWork();drawOverlay();tab='edit';syncTabs();renderPanel();
+    setTimeout(()=>{const f=document.getElementById('f-no');if(f)f.focus();},0);
+    return;
+  }
+  band={x0:p.x,y0:p.y,x1:p.x,y1:p.y};
+},true);
+window.addEventListener('mousemove',ev=>{
+  if(!band)return;
+  const p=toImg(ev);band.x1=p.x;band.y1=p.y;
+  const s=dg.sheets[cur];
+  let r=document.getElementById('band');
+  if(!r){r=mk('rect');r.id='band';ovl.appendChild(r);}
+  r.setAttribute('x',Math.min(band.x0,band.x1)*s.w);
+  r.setAttribute('y',Math.min(band.y0,band.y1)*s.h);
+  r.setAttribute('width',Math.abs(band.x1-band.x0)*s.w);
+  r.setAttribute('height',Math.abs(band.y1-band.y0)*s.h);
+});
+window.addEventListener('mouseup',()=>{
+  if(!band)return;
+  const b=band;band=null;
+  const w=Math.abs(b.x1-b.x0),h=Math.abs(b.y1-b.y0);
+  if(w<0.001||h<0.001){drawOverlay();return;}   // a stray click, not a box
+  W.comps.push({code:'',name:'',en:'',x:+Math.min(b.x0,b.x1).toFixed(6),
+                y:+Math.min(b.y0,b.y1).toFixed(6),w:+w.toFixed(6),h:+h.toFixed(6),
+                loc:'',notes:'',conf:'unknown',v:0});
+  sel={kind:'comp',data:W.comps[W.comps.length-1],i:W.comps.length-1};
+  saveWork();drawOverlay();tab='edit';syncTabs();renderPanel();
+  setTimeout(()=>{const f=document.getElementById('f-code');if(f)f.focus();},0);
+});
+/* ---- the Edit panel ---- */
+function field(id,label,val,ph){
+  return `<label for="${id}">${label}</label>`+
+         `<input id="${id}" value="${esc(val||'')}" placeholder="${esc(ph||'')}">`;
+}
+function renderEdit(){
+  const counts=endCounts();
+  const distinct=Object.keys(counts), paired=distinct.filter(k=>counts[k]===2);
+  const singles=distinct.filter(k=>counts[k]===1).sort();
+  const over=distinct.filter(k=>counts[k]>2).sort();
+  let h='';
+  if(sel&&sel.kind==='comp'){
+    const c=sel.data;
+    h+=`<div class="sec frm"><h3>Component</h3>
+      ${field('f-code','Callout number',c.code,'e.g. 27')}
+      ${field('f-name','Name (as printed)',c.name,'')}
+      ${field('f-en','Name in English',c.en,'e.g. Turn signal relay')}
+      ${field('f-loc','Where on the car',c.loc,'e.g. behind the dash, LH')}
+      <label for="f-conf">Confidence</label>
+      <select id="f-conf">${['unknown','typical','verified'].map(o=>
+        `<option${c.conf===o?' selected':''}>${o}</option>`).join('')}</select>
+      <label for="f-notes">Notes</label><textarea id="f-notes" rows="3">${esc(c.notes||'')}</textarea>
+      <div class="ebar"><button id="b-del">Delete</button></div></div>`;
+  } else if(sel&&sel.kind==='end'){
+    const e=sel.data, n=counts[(e.no||'').trim()]||0;
+    h+=`<div class="sec frm"><h3>Wire end</h3>
+      ${field('f-no','Wire number',e.no,'e.g. 258')}
+      ${field('f-col','Colour code',e.col,'e.g. GR')}
+      ${field('f-comp','At component',e.comp,'callout number')}
+      ${field('f-pin','Terminal / pin',e.pin,'')}
+      <label for="f-circ">Circuits this wire belongs to</label>
+      <select id="f-circ" multiple size="6">${(dg.circuits||[]).map(c=>
+        `<option value="${esc(c.code)}"${(e.circuits||[]).includes(c.code)?' selected':''}>`+
+        `${esc(c.name)}</option>`).join('')}</select>
+      <div class="stat ${n===2?'good':'bad'}"><span>This number appears</span>
+        <b>${n}&times;</b></div>
+      ${e.col?`<div class="stat"><span>${esc(colourName(e.col))}</span>
+        <span>${swatch(e.col)}</span></div>`:''}
+      <div class="ebar"><button id="b-del">Delete</button></div></div>`;
+  } else {
+    h+=`<div class="sec"><h3>Editing</h3><p>Draw a box over a numbered callout to
+      add a component, or click a wire stub to add a wire end. Keys: 1 select,
+      2 component, 3 wire end, Delete removes the selection.</p></div>`;
+  }
+  h+=`<div class="sec"><h3>Pairing check</h3>
+    <div class="stat"><span>Components</span><b>${W.comps.length}</b></div>
+    <div class="stat"><span>Wire ends</span><b>${W.ends.length}</b></div>
+    <div class="stat good"><span>Numbers pairing cleanly</span><b>${paired.length}</b></div>
+    <div class="stat ${singles.length?'bad':''}"><span>Appearing once</span><b>${singles.length}</b></div>
+    <div class="stat ${over.length?'bad':''}"><span>Appearing 3+ times</span><b>${over.length}</b></div>
+    <p style="margin-top:8px">Every wire number is printed at both ends of its wire, so
+    anything not appearing exactly twice is an error — a missed end, or a misread digit.</p>`;
+  singles.slice(0,40).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
+    <b>${esc(k)}</b> — only one end recorded</div>`;});
+  over.slice(0,40).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
+    <b>${esc(k)}</b> — ${counts[k]} ends recorded</div>`;});
+  h+=`</div><div class="sec"><h3>Session</h3>
+    <div class="ebar">
+      <button id="b-export" class="primary">Export edits</button>
+      <button id="b-ocr">Load OCR proposals</button>
+      <button id="b-reset">Discard draft</button>
+    </div>
+    <p style="margin-top:8px">Work is saved in this browser as you go. Export writes a
+    JSON snapshot for <code>apply_wiring_edits.py</code>. OCR proposals arrive
+    unconfirmed and dashed — they are a starting point, not an answer.</p></div>`;
+  panel.innerHTML=h;
+
+  const bind=(id,key,obj)=>{const el=document.getElementById(id);if(!el)return;
+    el.oninput=()=>{obj[key]=el.value;saveWork();drawOverlay();};};
+  if(sel&&sel.kind==='comp'){
+    bind('f-code','code',sel.data);bind('f-name','name',sel.data);
+    bind('f-en','en',sel.data);bind('f-loc','loc',sel.data);
+    bind('f-notes','notes',sel.data);bind('f-conf','conf',sel.data);
+  }
+  if(sel&&sel.kind==='end'){
+    ['no','col','comp','pin'].forEach(k=>bind('f-'+k,k,sel.data));
+    const cs=document.getElementById('f-circ');
+    if(cs)cs.onchange=()=>{sel.data.circuits=[...cs.selectedOptions].map(o=>o.value);
+      saveWork();drawOverlay();};
+    const no=document.getElementById('f-no');
+    if(no)no.oninput=()=>{sel.data.no=no.value;sel.data.src='manual';
+      saveWork();drawOverlay();renderEdit();};
+  }
+  const del=document.getElementById('b-del');if(del)del.onclick=deleteSelected;
+  panel.querySelectorAll('.prob').forEach(el=>{el.onclick=()=>{
+    const k=el.dataset.no;const i=W.ends.findIndex(e=>(e.no||'').trim()===k);
+    if(i>=0){sel={kind:'end',data:W.ends[i],i};zoomTo(W.ends[i]);drawOverlay();renderEdit();}};});
+  document.getElementById('b-export').onclick=exportEdits;
+  document.getElementById('b-ocr').onclick=loadProposals;
+  document.getElementById('b-reset').onclick=()=>{
+    if(!confirm('Discard this browser draft and go back to what is in the database?'))return;
+    try{localStorage.removeItem(storeKey());}catch(err){}
+    sel=null;loadWork();drawOverlay();renderEdit();};
+}
+function zoomTo(e){
+  const s=dg.sheets[cur],r=viewer.getBoundingClientRect();
+  view.s=Math.max(view.s,1.5);
+  view.x=r.width/2-e.x*s.w*view.s;view.y=r.height/2-e.y*s.h*view.s;apply();
+}
+function exportEdits(){
+  const s=dg.sheets[cur];
+  const payload={diagram:slug,sheet:s.n,image_w:s.w,image_h:s.h,
+    exported_from:'wiring.html',
+    components:W.comps,wire_ends:W.ends};
+  const blob=new Blob([JSON.stringify(payload,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`wiring_edits-${slug}-s${String(s.n).padStart(2,'0')}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+function loadProposals(){
+  const s=dg.sheets[cur];
+  const url=`wiringproposals/${slug}-s${String(s.n).padStart(2,'0')}.json`;
+  fetch(url).then(r=>{if(!r.ok)throw new Error(r.status);return r.json();})
+    .then(o=>{
+      const have=new Set(W.ends.map(e=>Math.round(e.x*4000)+':'+Math.round(e.y*4000)));
+      let added=0;
+      (o.ends||[]).forEach(e=>{
+        const k=Math.round(e.x*4000)+':'+Math.round(e.y*4000);
+        if(have.has(k))return;
+        have.add(k);added++;
+        W.ends.push({no:e.wire_no||'',col:e.colour||'',comp:'',pin:'',circuits:[],
+                     x:e.x,y:e.y,src:'ocr',conf:'unknown',v:0});
+      });
+      saveWork();drawOverlay();renderEdit();
+      alert(`Added ${added} OCR proposals. They are dashed and unconfirmed — `+
+            `check each against the print before exporting.`);
+    })
+    .catch(err=>alert('No proposal file for this sheet ('+url+').\n\n'+
+      'Generate one with:\n  python3 pipeline/propose_wire_ends.py --diagram '+slug+
+      ' --sheet '+s.n));
+}
+
 if(slug)load(slug,params.get('s'));
 else document.getElementById('title').textContent='No wiring diagrams ingested yet';
 </script></body></html>

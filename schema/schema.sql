@@ -365,6 +365,30 @@ CREATE TABLE IF NOT EXISTS wd_wire (
     notes       TEXT
 );
 
+-- ---- phase 2: the transcription unit -------------------------------------
+-- One wire stub as printed: a wire number + colour code at a component
+-- terminal. The 1978 Australian sheet prints each wire number at BOTH of its
+-- ends, so wires are DERIVED by pairing ends with the same number
+-- (pipeline/derive_wires.py) rather than traced. "Appears exactly twice" is
+-- therefore a continuous, free correctness check on the transcription.
+CREATE TABLE IF NOT EXISTS wd_wire_end (
+    id             INTEGER PRIMARY KEY,
+    sheet_id       INTEGER NOT NULL REFERENCES wd_sheet(id),
+    wire_no        TEXT NOT NULL,
+    colour_code    TEXT,
+    component_code TEXT,
+    pin            TEXT,
+    circuit_ids    TEXT,                  -- comma-separated wd_circuit.code
+    x REAL, y REAL,                       -- normalized 0..1 on the sheet
+    src            TEXT DEFAULT 'manual' CHECK (src IN ('manual','ocr')),
+    conf           TEXT DEFAULT 'unknown'
+                   CHECK (conf IN ('verified','typical','unknown')),
+    verified       INTEGER DEFAULT 0,
+    notes          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_wd_end_sheet ON wd_wire_end(sheet_id);
+CREATE INDEX IF NOT EXISTS idx_wd_end_no    ON wd_wire_end(sheet_id, wire_no);
+
 CREATE INDEX IF NOT EXISTS idx_wd_sheet_diagram ON wd_sheet(diagram_id);
 CREATE INDEX IF NOT EXISTS idx_wd_comp_sheet    ON wd_component(sheet_id);
 CREATE INDEX IF NOT EXISTS idx_wd_wire_sheet    ON wd_wire(sheet_id);
