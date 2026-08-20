@@ -30,9 +30,10 @@ from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 
 # ---------------------------------------------------------------- manifest
-# Everything below came from the x19.com.au library (see archive/sources.yaml);
-# CREDIT is surfaced on every wiring page of the site.
-CREDIT = "Scan courtesy of x19.com.au"
+# Provenance for every file below is recorded in archive/sources.yaml, which is
+# the single place it lives. This script does not write a credit string into the
+# database and the exporter does not publish one; wiring_diagram.credit stays
+# NULL by design. Don't reintroduce it here without changing both.
 
 DIAGRAMS = [
     dict(slug="wd-1974", file="Fiat_X19_1974_wiring.pdf",
@@ -363,21 +364,21 @@ def main():
         if row:
             sid = row[0]
         else:
-            db.execute("INSERT INTO source(kind,title,notes) VALUES('pdf',?,?)",
-                       (d["file"], CREDIT))
+            db.execute("INSERT INTO source(kind,title) VALUES('pdf',?)",
+                       (d["file"],))
             sid = db.execute("SELECT id FROM source WHERE title=?", (d["file"],)).fetchone()[0]
 
         db.execute("""INSERT INTO wiring_diagram
                         (slug,vehicle_id,source_id,title,year_from,year_to,market,
                          variant_note,credit,pilot,sort_order)
-                      VALUES(?,?,?,?,?,?,?,?,?,?,?)
+                      VALUES(?,?,?,?,?,?,?,?,NULL,?,?)
                       ON CONFLICT(slug) DO UPDATE SET
                         title=excluded.title, year_from=excluded.year_from,
                         year_to=excluded.year_to, market=excluded.market,
-                        variant_note=excluded.variant_note, credit=excluded.credit,
+                        variant_note=excluded.variant_note, credit=NULL,
                         pilot=excluded.pilot, sort_order=excluded.sort_order""",
                    (d["slug"], vid, sid, d["title"], d.get("year_from"), d.get("year_to"),
-                    d.get("market"), d.get("variant_note"), CREDIT,
+                    d.get("market"), d.get("variant_note"),
                     d.get("pilot", 0), d.get("sort_order", 99)))
         did = db.execute("SELECT id FROM wiring_diagram WHERE slug=?", (d["slug"],)).fetchone()[0]
 
