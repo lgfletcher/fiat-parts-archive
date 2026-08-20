@@ -15,7 +15,7 @@ VEHICLE_NAMES = {"x19": "Fiat X1/9", "124": "Fiat 124", "125": "Fiat 125",
 
 def classify(name):
     n = name.lower()
-    if n.endswith((".jpg", ".jpeg", ".png", ".gif")) or "colour" in n or "color" in n or "paint" in n or "chip" in n:
+    if n.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp")) or "colour" in n or "color" in n or "paint" in n or "chip" in n:
         return "Paint & colour charts"
     if "parts" in n and ("catalog" in n or "list" in n): return "Parts catalogues"
     if "wiring" in n or "electrical" in n: return "Wiring & electrical"

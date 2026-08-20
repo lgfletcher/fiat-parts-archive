@@ -148,3 +148,143 @@
   origin: x19.com.au library — own site
   url: https://x19.com.au/assets/manuals/X19/Bertone_X19_1988_owners_manual.pdf
   hosting: host
+
+- file: x19/colour_charts/1977-ppg-imported-car-colors-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1977-ppg-imported-car-colors-chips.webp
+  notes: "1977 PPG Imported Car Colors — chips"
+  hosting: host
+
+- file: x19/colour_charts/1977-ppg-imported-car-colors-codes.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1977-ppg-imported-car-colors-codes.webp
+  notes: "1977 PPG Imported Car Colors — codes"
+  hosting: host
+
+- file: x19/colour_charts/1978-ppg-imported-car-colors-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1978-ppg-imported-car-colors-chips.webp
+  notes: "1978 PPG Imported Car Colors — chips"
+  hosting: host
+
+- file: x19/colour_charts/1979-ppg-european-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1979-ppg-european-import-chips.webp
+  notes: "1979 PPG European Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1979-ppg-european-import-codes.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1979-ppg-european-import-codes.webp
+  notes: "1979 PPG European Import — codes"
+  hosting: host
+
+- file: x19/colour_charts/1980-ppg-european-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1980-ppg-european-import-chips.webp
+  notes: "1980 PPG European Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1980-ppg-european-import-codes.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1980-ppg-european-import-codes.webp
+  notes: "1980 PPG European Import — codes"
+  hosting: host
+
+- file: x19/colour_charts/1981-ppg-european-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1981-ppg-european-import-chips.webp
+  notes: "1981 PPG European Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1981-ppg-european-import-codes.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1981-ppg-european-import-codes.webp
+  notes: "1981 PPG European Import — codes"
+  hosting: host
+
+- file: x19/colour_charts/1984-ppg-european-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1984-ppg-european-import-chips.webp
+  notes: "1984 PPG European Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1986-ppg-misc-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1986-ppg-misc-import-chips.webp
+  notes: "1986 PPG Misc. Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1986-bertone-two-tone-colors.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1986-bertone-two-tone-colors.webp
+  notes: "1986 Bertone two-tone colors"
+  hosting: host
+
+- file: x19/colour_charts/1987-ppg-misc-import-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1987-ppg-misc-import-chips.webp
+  notes: "1987 PPG Misc. Import — chips"
+  hosting: host
+
+- file: x19/colour_charts/1987-bertone-two-tone-colors.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1987-bertone-two-tone-colors.webp
+  notes: "1987 Bertone two-tone colors"
+  hosting: host
+
+- file: x19/colour_charts/1988-ppg-bertone-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1988-ppg-bertone-chips.webp
+  notes: "1988 PPG Bertone — chips"
+  hosting: host
+
+- file: x19/colour_charts/1979-fiat-sports-car-colors.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1979-fiat-sports-car-colors.webp
+  notes: "1979 Fiat sports car colors"
+  hosting: host
+
+- file: x19/colour_charts/fiat-x19-five-speed-paint-chips.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/fiat-x19-five-speed-paint-chips.webp
+  notes: "Fiat X1/9 Five Speed paint chips"
+  hosting: host
+
+- file: x19/colour_charts/1971-79-fiat-color-guide.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1971-79-fiat-color-guide.webp
+  notes: "Fiat Color Guide 1971-1979"
+  hosting: host
+
+- file: x19/colour_charts/toho-x19-japanese-colour-chart.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/toho-x19-japanese-colour-chart.webp
+  notes: "Toho Motors Japanese-market colour chart"
+  hosting: host
+
+- file: x19/colour_charts/1988-dulux-bertone-x19-codes.webp
+  kind: web
+  origin: x19.com.au library — paint codes
+  url: https://x19.com.au/assets/library/paint-codes/1988-dulux-bertone-x19-codes.webp
+  notes: "1988 Dulux codes (Australian)"
+  hosting: host

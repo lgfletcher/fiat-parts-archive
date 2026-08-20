@@ -1,0 +1,22 @@
+# Paint code & colour chart images on x19.com.au — fetch into archive/raw/x19/colour_charts/
+# format: URL | caption (for sources.yaml notes)
+https://x19.com.au/assets/library/paint-codes/1977-ppg-imported-car-colors-chips.webp | 1977 PPG Imported Car Colors — chips
+https://x19.com.au/assets/library/paint-codes/1977-ppg-imported-car-colors-codes.webp | 1977 PPG Imported Car Colors — codes
+https://x19.com.au/assets/library/paint-codes/1978-ppg-imported-car-colors-chips.webp | 1978 PPG Imported Car Colors — chips
+https://x19.com.au/assets/library/paint-codes/1979-ppg-european-import-chips.webp | 1979 PPG European Import — chips
+https://x19.com.au/assets/library/paint-codes/1979-ppg-european-import-codes.webp | 1979 PPG European Import — codes
+https://x19.com.au/assets/library/paint-codes/1980-ppg-european-import-chips.webp | 1980 PPG European Import — chips
+https://x19.com.au/assets/library/paint-codes/1980-ppg-european-import-codes.webp | 1980 PPG European Import — codes
+https://x19.com.au/assets/library/paint-codes/1981-ppg-european-import-chips.webp | 1981 PPG European Import — chips
+https://x19.com.au/assets/library/paint-codes/1981-ppg-european-import-codes.webp | 1981 PPG European Import — codes
+https://x19.com.au/assets/library/paint-codes/1984-ppg-european-import-chips.webp | 1984 PPG European Import — chips
+https://x19.com.au/assets/library/paint-codes/1986-ppg-misc-import-chips.webp | 1986 PPG Misc. Import — chips
+https://x19.com.au/assets/library/paint-codes/1986-bertone-two-tone-colors.webp | 1986 Bertone two-tone colors
+https://x19.com.au/assets/library/paint-codes/1987-ppg-misc-import-chips.webp | 1987 PPG Misc. Import — chips
+https://x19.com.au/assets/library/paint-codes/1987-bertone-two-tone-colors.webp | 1987 Bertone two-tone colors
+https://x19.com.au/assets/library/paint-codes/1988-ppg-bertone-chips.webp | 1988 PPG Bertone — chips
+https://x19.com.au/assets/library/paint-codes/1979-fiat-sports-car-colors.webp | 1979 Fiat sports car colors
+https://x19.com.au/assets/library/paint-codes/fiat-x19-five-speed-paint-chips.webp | Fiat X1/9 Five Speed paint chips
+https://x19.com.au/assets/library/paint-codes/1971-79-fiat-color-guide.webp | Fiat Color Guide 1971-1979
+https://x19.com.au/assets/library/paint-codes/toho-x19-japanese-colour-chart.webp | Toho Motors Japanese-market colour chart
+https://x19.com.au/assets/library/paint-codes/1988-dulux-bertone-x19-codes.webp | 1988 Dulux codes (Australian)
