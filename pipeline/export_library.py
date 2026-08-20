@@ -101,11 +101,10 @@ def main():
  .note{{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--dim);margin-top:8px}}
 </style></head><body>
 <header><h1>FIAT CLASSIC PARTS ARCHIVE — DOCUMENT LIBRARY</h1>
-<a href="index.html">← Parts catalog viewer</a></header>
+<a href="index.html">← Parts catalog viewer</a>
+<a href="paint.html">🎨 Paint codes &amp; colour charts</a></header>
 <main>
-<div class="note">Original scans preserved as-is. Sourced from the community —
-with thanks to <a href="https://x19.com.au" style="color:var(--accent2)">x19.com.au</a>
-for freely sharing their library. Files download directly from this project's GitHub repository.
+<div class="note">Original scans preserved as-is. Files download directly from this project's GitHub repository.
 Interactive (zoom + part search) versions are being added to the
 <a href="index.html" style="color:var(--accent2)">viewer</a> one document at a time.</div>
 {listing}
