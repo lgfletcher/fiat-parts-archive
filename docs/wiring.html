@@ -18,6 +18,9 @@
  .pgnav button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
    border-radius:6px;padding:5px 12px;cursor:pointer}
  .pgnav .of{color:var(--dim);font-size:12px;white-space:nowrap}
+ .ebtn{background:var(--panel2);color:var(--dim);border:1px solid var(--line);border-radius:6px;
+   padding:5px 12px;font-size:12.5px;cursor:pointer;white-space:nowrap}
+ .ebtn.on{background:var(--accent);color:#1c1f26;border-color:var(--accent);font-weight:600}
  #q{margin-left:auto;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
    border-radius:6px;padding:6px 12px;font-size:13px;width:230px}
  #app{display:flex;flex:1;min-height:0}
@@ -157,6 +160,9 @@
     <span class="of" id="of">sheet ? / ?</span>
     <button id="next">›</button>
   </div>
+  <button class="ebtn" id="ed-toggle" title="Toggle edit mode">&#9998; Edit</button>
+  <button class="ebtn" id="ed-export" style="display:none"
+          title="Download this sheet's transcription as JSON">&#11015; Export edits</button>
   <input id="q" type="search" placeholder="Search text on these sheets…" autocomplete="off">
 </header>
 <div id="app">
@@ -218,7 +224,9 @@ function init(sheetNo){
   let i=0;
   if(sheetNo){const k=dg.sheets.findIndex(s=>s.n===+sheetNo);if(k>=0)i=k;}
   else {const k=dg.sheets.findIndex(s=>s.kind==='master');if(k>=0)i=k;}
+  if(ED)tab='edit';
   show(i);
+  syncTabs();
   renderPanel();
 }
 function buildNav(){
@@ -605,7 +613,7 @@ viewer.addEventListener('click',e=>{
    never costs you a session. Export writes a JSON snapshot of the whole sheet,
    which pipeline/apply_wiring_edits.py loads into fiat.db.
 ========================================================================= */
-const ED=params.get('edit')==='1';
+let ED=params.get('edit')==='1';
 let tool='select', W={comps:[],ends:[]}, focusCircuit=null;
 function mk(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
 function syncTabs(){
@@ -631,16 +639,34 @@ function toImg(ev){
   return {x:((ev.clientX-r.left)-view.x)/view.s/s.w,
           y:((ev.clientY-r.top )-view.y)/view.s/s.h};
 }
-if(ED){
-  document.getElementById('tools').classList.add('on');
-  document.getElementById('tab-edit').style.display='';
-  document.title='EDIT — '+document.title;
+/* Edit mode is a toggle in the header, the same gesture as the parts viewer's
+   ✎ Edit button — not a URL you have to know to type. The URL still carries
+   edit=1 so a session can be bookmarked or shared mid-transcription. */
+function setEdit(on){
+  ED=on;
+  document.getElementById('tools').classList.toggle('on',on);
+  document.getElementById('tab-edit').style.display=on?'':'none';
+  document.getElementById('ed-toggle').classList.toggle('on',on);
+  document.getElementById('ed-export').style.display=on?'':'none';
+  if(on){loadWork();tab='edit';}
+  else if(tab==='edit'){tab='sheet';}
+  sel=null;syncTabs();
+  if(dg){
+    const s=dg.sheets[cur];
+    history.replaceState(null,'','?d='+slug+'&s='+s.n+(on?'&edit=1':''));
+    drawOverlay();renderPanel();
+  }
+}
+document.getElementById('ed-toggle').onclick=()=>setEdit(!ED);
+document.getElementById('ed-export').onclick=()=>exportEdits();
+{
   document.querySelectorAll('#tools [data-tool]').forEach(b=>{
     b.onclick=()=>{tool=b.dataset.tool;
       document.querySelectorAll('#tools [data-tool]').forEach(x=>
         x.classList.toggle('on',x===b));};});
   document.getElementById('t-del').onclick=deleteSelected;
   document.addEventListener('keydown',ev=>{
+    if(!ED)return;
     if(ev.target.tagName==='INPUT'||ev.target.tagName==='TEXTAREA')return;
     if(ev.key==='Delete'||ev.key==='Backspace'){ev.preventDefault();deleteSelected();}
     if(ev.key==='1')document.querySelector('[data-tool=select]').click();
@@ -829,6 +855,12 @@ function loadProposals(){
       ' --sheet '+s.n));
 }
 
+if(ED){                     // reflect the URL in the chrome before data arrives
+  document.getElementById('tools').classList.add('on');
+  document.getElementById('tab-edit').style.display='';
+  document.getElementById('ed-toggle').classList.add('on');
+  document.getElementById('ed-export').style.display='';
+}
 if(slug)load(slug,params.get('s'));
 else document.getElementById('title').textContent='No wiring diagrams ingested yet';
 </script></body></html>
