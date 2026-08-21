@@ -3,20 +3,30 @@
 Propose wire-end candidates on a wiring sheet by OCR, for the editor to review.
 
     python3 pipeline/propose_wire_ends.py --db fiat.db \
-        --sheets archive/derived/wiring --diagram wd-1978-aus --sheet 18 \
-        --out archive/derived/wiring/proposals
+        --sheets archive/derived/wiring --diagram wd-1978-aus --sheet 18
 
-The 1978 Australian master sheet is a numbered-wire cross-reference: every wire
-stub carries a Fiat colour code and a wire number, and the same number appears
-at both ends of the wire. That last property is the whole point of this script —
-it is a free correctness check. A number OCR'd correctly at both ends pairs up;
-a misread digit almost always lands on a number that appears once, or three
-times. So we do not need OCR to be right, we need it to be right *often*, and
-the pairing statistics tell us how often without anyone checking by hand.
+VERDICT, MEASURED: not currently worth using on this sheet.
+--------------------------------------------------------
+The sheet prints each stub as three things on one line — colour code, the index
+of the far end, and this terminal's own index. All three have to be read
+correctly for a proposal to be usable, and on the pilot sheet tesseract manages
+that for 39 of roughly 350 stubs, of which about 6% survive the reciprocity
+check. Reviewing 39 mostly-wrong candidates costs more than typing 39 correct
+ones.
 
-Output is a proposal file, never a write to fiat.db. The editor loads it, shows
-paired candidates as pre-filled and unpaired ones as flagged, and a human
-accepts. Nothing here is trusted.
+This was worth measuring, and the measurement is the deliverable: it says the
+transcription is a human job on this sheet, and that effort is better spent on
+the editor than on the OCR. The script is kept because it is cheap to re-run if
+a better scan turns up, and because a future sheet with cleaner printing may
+score very differently — the same pipeline will answer that in two minutes.
+
+Earlier revisions of this script scored better only because they were solving a
+misreading of the document: they treated the middle number as a wire ID that
+appears twice. It is not. It is a pointer to another terminal, and requiring the
+pointer AND the terminal AND the colour off one line is the real bar.
+
+Output is a proposal file, never a write to fiat.db. The editor loads it, marks
+every candidate unconfirmed and dashed, and a human accepts each one.
 """
 import argparse, csv, json, re, subprocess, sqlite3, tempfile
 from pathlib import Path
@@ -82,18 +92,49 @@ def classify(toks):
     return numbers, codes
 
 
-def pair_colour(num, codes, max_dx=420, max_dy=14):
-    """A wire number sits at the end of a stub; its colour code is the nearest
-    token on the same printed line. Vertical tolerance is tight on purpose —
-    the rows are ~26 px apart and grabbing the row above is worse than
-    grabbing nothing."""
-    best, bestd = None, 1e9
-    for c in codes:
-        dy = abs(c["y"] - num["y"])
-        dx = abs(c["x"] - num["x"])
-        if dy <= max_dy and dx <= max_dx and dx < bestd:
-            best, bestd = c, dx
-    return best
+def rows_of(toks, tol=13):
+    """Group tokens into printed rows. The stubs are set on tight baselines
+    about 26 px apart, so half that is a safe tolerance."""
+    out = []
+    for t in sorted(toks, key=lambda k: k["y"]):
+        for r in out:
+            if abs(r[0]["y"] - t["y"]) <= tol:
+                r.append(t); break
+        else:
+            out.append([t])
+    return [sorted(r, key=lambda k: k["x"]) for r in out]
+
+
+def read_stubs(toks):
+    """Read '<colour> <to_terminal> <terminal_no>' triples off each printed row.
+
+    The sheet prints a stub as colour, then the index of the far end, then this
+    terminal's own index. Left-hand blocks read in that order; the right-hand
+    blocks are mirrored, so the row is read from whichever side the colour code
+    sits on. Only rows that yield a colour and two numbers are proposed — a
+    partial read is worse than no read, because it costs review time and
+    supplies nothing the reciprocity check can use.
+    """
+    stubs = []
+    for row in rows_of(toks):
+        codes = [t for t in row if re.fullmatch(r"[A-Z]{1,2}", t["t"]) and set(t["t"]) <= LETTERS]
+        nums = [t for t in row if re.fullmatch(r"\d{1,3}", t["t"])]
+        if len(codes) != 1 or len(nums) < 2:
+            continue
+        c = codes[0]
+        right = [n for n in nums if n["x"] > c["x"]]
+        left = [n for n in nums if n["x"] < c["x"]]
+        if len(right) >= 2:                 # left-hand block: colour, far, own
+            far, own = right[0], right[1]
+        elif len(left) >= 2:                # mirrored block: own, far, colour
+            own, far = left[0], left[1]
+        else:
+            continue
+        stubs.append({"terminal_no": own["t"], "to_terminal": far["t"],
+                      "colour": c["t"],
+                      "x": own["x"], "y": own["y"],
+                      "conf_ocr": round(min(own["conf"], far["conf"], c["conf"]), 1)})
+    return stubs
 
 
 def main():
@@ -124,38 +165,41 @@ def main():
     numbers, codes = classify(toks)
     print(f"  {len(toks)} tokens -> {len(numbers)} numbers, {len(codes)} colour codes")
 
-    # the free correctness check
-    counts = {}
-    for n in numbers:
-        counts[n["t"]] = counts.get(n["t"], 0) + 1
-    paired = sorted(k for k, v in counts.items() if v == 2)
-    singles = sorted(k for k, v in counts.items() if v == 1)
-    over = sorted(k for k, v in counts.items() if v > 2)
-    tot = len(counts)
-    print(f"  distinct numbers: {tot}")
-    print(f"    appear exactly twice (pair cleanly): {len(paired)}"
-          f"  ({100*len(paired)/max(1,tot):.0f}%)")
-    print(f"    appear once  (likely a missed or misread end): {len(singles)}")
-    print(f"    appear 3+    (likely a misread of another number): {len(over)}")
-    if over:
-        print(f"      {', '.join(f'{k}x{counts[k]}' for k in over[:15])}")
+    stubs = read_stubs(toks)
+    print(f"  {len(stubs)} rows read as a complete <colour, far end, this terminal> triple")
+
+    # the sheet's own integrity rule, applied to the OCR: does each pointer
+    # point at a terminal that points back?
+    by_t = {}
+    dups = 0
+    for st in stubs:
+        if st["terminal_no"] in by_t:
+            dups += 1
+        else:
+            by_t[st["terminal_no"]] = st
+    good = [t for t, st in by_t.items()
+            if by_t.get(st["to_terminal"], {}).get("to_terminal") == t]
+    print(f"  distinct terminals: {len(by_t)}"
+          + (f" ({dups} duplicate index/indices)" if dups else ""))
+    print(f"    reciprocated round trips: {len(good)} "
+          f"({100*len(good)/max(1,len(by_t)):.0f}%)")
+    print("    a low figure here is expected and is the honest result — these are")
+    print("    review candidates, and the editor shows every one as unconfirmed.")
 
     if args.report_only:
         return
 
     ends = []
-    for n in numbers:
-        c = pair_colour(n, codes)
+    for st in stubs:
         ends.append({
-            "wire_no": n["t"],
-            "colour": c["t"] if c else None,
-            "x": round(n["x"] / W, 6), "y": round(n["y"] / H, 6),
-            "conf_ocr": round(n["conf"], 1),
-            "pairs": counts[n["t"]] == 2,
+            "terminal_no": st["terminal_no"], "to_terminal": st["to_terminal"],
+            "colour": st["colour"],
+            "x": round(st["x"] / W, 6), "y": round(st["y"] / H, 6),
+            "conf_ocr": st["conf_ocr"],
+            "reciprocated": st["terminal_no"] in good,
         })
-    ends.sort(key=lambda e: (e["wire_no"], e["y"]))
-    with_colour = sum(1 for e in ends if e["colour"])
-    print(f"  {len(ends)} proposed ends, {with_colour} with a colour code attached")
+    ends.sort(key=lambda e: (int(e["terminal_no"]) if e["terminal_no"].isdigit() else 0))
+    print(f"  {len(ends)} proposed terminals")
 
     outdir = Path(args.out)
     outdir.mkdir(parents=True, exist_ok=True)
@@ -165,8 +209,8 @@ def main():
         "image_w": W, "image_h": H,
         "psm": args.psm,
         "stats": {"tokens": len(toks), "numbers": len(numbers), "codes": len(codes),
-                  "distinct": tot, "paired": len(paired),
-                  "singles": len(singles), "over": len(over)},
+                  "stubs": len(stubs), "terminals": len(by_t),
+                  "reciprocated": len(good), "duplicates": dups},
         "ends": ends,
     }, indent=1))
     print(f"  -> {dst}")

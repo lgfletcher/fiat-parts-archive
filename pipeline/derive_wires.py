@@ -1,36 +1,52 @@
 #!/usr/bin/env python3
 """
-Derive wd_wire rows by pairing wire ends that share a wire number.
+Derive wd_wire rows from reciprocal terminal pointers.
 
     python3 pipeline/derive_wires.py --db fiat.db
     python3 pipeline/derive_wires.py --db fiat.db --diagram wd-1978-aus --sheet 18
 
-On the 1978 Australian master sheet every wire number is printed at both ends
-of its wire, so connectivity does not have to be traced — it falls out of the
-transcription. Two ends with the same number are one wire.
+HOW THE SHEET ACTUALLY WORKS
+----------------------------
+The 1978 Australian master sheet is a cross-reference table, not a routing
+drawing. Each wire stub is printed as
 
-Anything that is NOT exactly two ends is reported rather than guessed at:
+    <colour>  <to_terminal>   <terminal_no>
+    GR ------ 258             97
 
-  one end    an end was missed, or a digit was misread into a number that
-             doesn't exist elsewhere
-  3+ ends    a digit was misread INTO an existing number, so a real wire has
-             acquired a phantom third end
+meaning: "this is terminal 97, it is green/grey, and the other end of this wire
+is terminal 258". Over at terminal 258 the sheet prints "GR 97", pointing back.
 
-Both are transcription errors, not data. This script never invents a wire from
-them, and it prints them so the next editing session has a worklist.
+So connectivity is not traced and it is not "the same number twice" — it is a
+mutual pointer pair. Terminal A names B, B names A, and the colours agree.
 
-Confidence is inherited honestly: a derived wire is 'verified' only when both
-its ends are, 'unknown' when either end is, 'typical' otherwise. A colour
-mismatch between the two ends downgrades to 'unknown' and is reported — the two
-printings of one wire should agree, and when they don't, one of them was
-misread.
+That reciprocity is a genuinely strong check, because it validates BOTH numbers
+at BOTH ends: a single misread digit breaks the round trip and shows up as an
+unreciprocated pointer rather than quietly becoming a wrong wire.
 
-Only derived wires are rewritten. A hand-traced polyline lives in the same
-table, so wires carrying a `path` are preserved: their endpoints get refreshed
-from the ends, their geometry is left alone.
+WHAT THIS SCRIPT REFUSES TO DO
+------------------------------
+  dangling       A points at B, but B was never transcribed
+  one-way        A points at B, but B points somewhere else entirely
+  duplicate      the same terminal index recorded twice on one sheet
+  colour clash   A and B agree they are joined but disagree on the colour
+
+None of these become wires. They are printed as a worklist, because each one is
+a transcription error or an unfinished terminal, and inventing a wire from a
+broken pointer is exactly the failure this design exists to prevent.
+
+Confidence is inherited: 'verified' only when both ends are verified and the
+colours agree, 'unknown' when either end is unknown or the colours clash,
+'typical' otherwise.
+
+Hand-traced polylines are preserved: a wire carrying a `path` keeps its geometry
+and only has its endpoints refreshed.
 """
 import argparse, sqlite3
 from collections import defaultdict
+
+
+def norm(v):
+    return (v or "").strip()
 
 
 def main():
@@ -60,80 +76,108 @@ def main():
 
     grand = defaultdict(int)
     for sh in sheets:
-        ends = db.execute("""SELECT wire_no,colour_code,component_code,pin,
-                                    circuit_ids,conf,verified
-                             FROM wd_wire_end WHERE sheet_id=? ORDER BY wire_no,y""",
+        ends = db.execute("""SELECT terminal_no,to_terminal,colour_code,component_code,
+                                    pin,circuit_ids,conf,verified
+                             FROM wd_wire_end WHERE sheet_id=?
+                             ORDER BY CAST(terminal_no AS INTEGER)""",
                           (sh["id"],)).fetchall()
-        by_no = defaultdict(list)
-        for e in ends:
-            by_no[e["wire_no"].strip()].append(e)
 
-        # keep hand-traced geometry, drop previously derived wires
+        by_terminal, dup = {}, []
+        for e in ends:
+            t = norm(e["terminal_no"])
+            if not t:
+                continue
+            if t in by_terminal:
+                dup.append(t)
+            else:
+                by_terminal[t] = e
+
         traced = db.execute("""SELECT label,path FROM wd_wire
                                WHERE sheet_id=? AND path IS NOT NULL AND path!=''""",
                             (sh["id"],)).fetchall()
         traced_by_label = {t["label"]: t["path"] for t in traced}
         db.execute("DELETE FROM wd_wire WHERE sheet_id=?", (sh["id"],))
 
-        made, singles, over, clash = 0, [], [], []
-        for no, group in sorted(by_no.items()):
-            if len(group) == 1:
-                singles.append(no); continue
-            if len(group) > 2:
-                over.append((no, len(group))); continue
-            a, b = group
-            ca = (a["colour_code"] or "").strip().upper()
-            cb = (b["colour_code"] or "").strip().upper()
+        made, dangling, oneway, clash, nopointer = 0, [], [], [], []
+        done = set()
+        for t, e in sorted(by_terminal.items(), key=lambda kv: int(kv[0]) if kv[0].isdigit() else 0):
+            if t in done:
+                continue
+            other = norm(e["to_terminal"])
+            if not other:
+                nopointer.append(t); continue
+            o = by_terminal.get(other)
+            if o is None:
+                dangling.append((t, other)); continue
+            if norm(o["to_terminal"]) != t:
+                oneway.append((t, other, norm(o["to_terminal"]) or "nothing")); continue
+
+            done.add(t); done.add(other)
+            ca, cb = norm(e["colour_code"]).upper(), norm(o["colour_code"]).upper()
             colour, mismatch = ca or cb, bool(ca and cb and ca != cb)
             if mismatch:
-                clash.append((no, ca, cb))
+                clash.append((t, other, ca, cb))
 
-            if a["verified"] and b["verified"] and not mismatch:
+            if e["verified"] and o["verified"] and not mismatch:
                 conf = "verified"
-            elif mismatch or "unknown" in (a["conf"], b["conf"]):
+            elif mismatch or "unknown" in (e["conf"], o["conf"]):
                 conf = "unknown"
             else:
                 conf = "typical"
 
-            # a wire belongs to every circuit either of its ends was tagged with
-            circuits = sorted({c for e in group
-                               for c in (e["circuit_ids"] or "").split(",") if c})
+            circuits = sorted({c for r in (e, o)
+                               for c in (r["circuit_ids"] or "").split(",") if c})
+            # a stable name for the wire, independent of which end you read first
+            lo, hi = sorted([t, other], key=lambda v: int(v) if v.isdigit() else 0)
+            label = f"{lo}-{hi}"
+
             db.execute("""INSERT INTO wd_wire
                           (sheet_id,label,colour_code,gauge,from_component,from_pin,
                            to_component,to_pin,path,circuit_ids,conf,verified,notes)
                           VALUES(?,?,?,NULL,?,?,?,?,?,?,?,?,?)""",
-                       (sh["id"], no, colour or None,
-                        a["component_code"], a["pin"],
-                        b["component_code"], b["pin"],
-                        traced_by_label.get(no),
+                       (sh["id"], label, colour or None,
+                        e["component_code"], e["pin"],
+                        o["component_code"], o["pin"],
+                        traced_by_label.get(label),
                         ",".join(circuits) or None,
                         conf, 1 if conf == "verified" else 0,
-                        "colour codes disagree between the two ends" if mismatch else None))
+                        f"colour disagrees: terminal {t} says {ca}, {other} says {cb}"
+                        if mismatch else None))
             made += 1
 
         db.commit()
         grand["wires"] += made
-        grand["singles"] += len(singles)
-        grand["over"] += len(over)
-        grand["clash"] += len(clash)
+        for k, v in (("dangling", dangling), ("oneway", oneway),
+                     ("clash", clash), ("dup", dup), ("nopointer", nopointer)):
+            grand[k] += len(v)
 
-        if args.quiet and not (singles or over or clash):
+        problems = dangling or oneway or clash or dup or nopointer
+        if args.quiet and not problems:
             continue
         print(f"\n{sh['slug']} sheet {sh['sheet_no']}: "
-              f"{len(ends)} ends -> {made} wires")
-        if singles:
-            print(f"  {len(singles)} number(s) with only one end: "
-                  f"{', '.join(singles[:20])}{' …' if len(singles) > 20 else ''}")
-        if over:
-            print(f"  {len(over)} number(s) with 3+ ends: "
-                  + ", ".join(f"{n} ({c})" for n, c in over[:20]))
+              f"{len(ends)} terminals -> {made} wires")
+        if dup:
+            print(f"  {len(dup)} duplicate terminal index/indices: "
+                  + ", ".join(sorted(set(dup))[:20]))
+        if nopointer:
+            print(f"  {len(nopointer)} terminal(s) with no pointer recorded yet: "
+                  + ", ".join(nopointer[:20]) + (" …" if len(nopointer) > 20 else ""))
+        if dangling:
+            print(f"  {len(dangling)} pointer(s) to a terminal not yet transcribed: "
+                  + ", ".join(f"{a}->{b}" for a, b in dangling[:20])
+                  + (" …" if len(dangling) > 20 else ""))
+        if oneway:
+            print(f"  {len(oneway)} pointer(s) not reciprocated:")
+            for a, b, back in oneway[:15]:
+                print(f"    terminal {a} -> {b}, but {b} -> {back}")
         if clash:
             print(f"  {len(clash)} colour disagreement(s): "
-                  + ", ".join(f"{n}: {a} vs {b}" for n, a, b in clash[:15]))
+                  + ", ".join(f"{a}/{b}: {x} vs {y}" for a, b, x, y in clash[:12]))
 
     print(f"\nTOTAL: {grand['wires']} wires derived; "
-          f"{grand['singles']} unpaired, {grand['over']} over-paired, "
-          f"{grand['clash']} colour clashes to resolve")
+          f"{grand['dangling']} dangling, {grand['oneway']} one-way, "
+          f"{grand['dup']} duplicate indices, {grand['nopointer']} unpointed, "
+          f"{grand['clash']} colour clashes")
 
 
 if __name__ == "__main__":

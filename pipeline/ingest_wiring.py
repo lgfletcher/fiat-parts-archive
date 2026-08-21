@@ -141,15 +141,18 @@ CREATE TABLE IF NOT EXISTS wd_wire (
 );
 
 -- ---- phase 2: the transcription unit -------------------------------------
--- One wire stub as printed: a wire number + colour code at a component
--- terminal. The 1978 Australian sheet prints each wire number at BOTH of its
--- ends, so wires are DERIVED by pairing ends with the same number
--- (pipeline/derive_wires.py) rather than traced. "Appears exactly twice" is
--- therefore a continuous, free correctness check on the transcription.
+-- One wire stub as printed. The 1978 Australian sheet is a cross-reference:
+-- every terminal carries its own index, and beside the colour code it prints
+-- the index of the terminal at the OTHER END of that wire. So terminal 97
+-- reads "GR 258" and terminal 258 reads "GR 97" — a mutual pointer pair.
+-- Wires are DERIVED from that reciprocity (pipeline/derive_wires.py), never
+-- traced, and "does every pointer point back?" is a continuous, free
+-- correctness check on the transcription.
 CREATE TABLE IF NOT EXISTS wd_wire_end (
     id             INTEGER PRIMARY KEY,
     sheet_id       INTEGER NOT NULL REFERENCES wd_sheet(id),
-    wire_no        TEXT NOT NULL,
+    terminal_no    TEXT NOT NULL,        -- THIS end's index, as printed
+    to_terminal    TEXT,                 -- the index this end points AT
     colour_code    TEXT,
     component_code TEXT,
     pin            TEXT,
@@ -162,7 +165,7 @@ CREATE TABLE IF NOT EXISTS wd_wire_end (
     notes          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_wd_end_sheet ON wd_wire_end(sheet_id);
-CREATE INDEX IF NOT EXISTS idx_wd_end_no    ON wd_wire_end(sheet_id, wire_no);
+CREATE INDEX IF NOT EXISTS idx_wd_end_no    ON wd_wire_end(sheet_id, terminal_no);
 
 CREATE INDEX IF NOT EXISTS idx_wd_sheet_diagram ON wd_sheet(diagram_id);
 CREATE INDEX IF NOT EXISTS idx_wd_comp_sheet    ON wd_component(sheet_id);

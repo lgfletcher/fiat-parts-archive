@@ -47,7 +47,7 @@ def main():
         # An unnumbered component is a box someone drew and never labelled.
         # Storing it would collide on (sheet_id, code) and tells us nothing.
         keep_comps = [c for c in comps if (c.get("code") or "").strip()]
-        keep_ends = [e for e in ends if (e.get("no") or "").strip()]
+        keep_ends = [e for e in ends if (e.get("term") or "").strip()]
         dropped_c, dropped_e = len(comps) - len(keep_comps), len(ends) - len(keep_ends)
 
         before_c = db.execute("SELECT COUNT(*) FROM wd_component WHERE sheet_id=?",
@@ -60,16 +60,13 @@ def main():
               f"wire ends {before_e} -> {len(keep_ends)}")
         if dropped_c or dropped_e:
             print(f"  dropped {dropped_c} unnumbered component(s), "
-                  f"{dropped_e} wire end(s) with no number")
+                  f"{dropped_e} terminal(s) with no index")
 
-        counts = {}
-        for e in keep_ends:
-            k = e["no"].strip()
-            counts[k] = counts.get(k, 0) + 1
-        bad = {k: v for k, v in counts.items() if v != 2}
-        print(f"  pairing: {sum(1 for v in counts.values() if v == 2)} of {len(counts)} "
-              f"numbers appear exactly twice"
-              + (f", {len(bad)} do not" if bad else ""))
+        # the reciprocity check, reported before anything is written
+        ptr = {e["term"].strip(): (e.get("to") or "").strip() for e in keep_ends}
+        ok = sum(1 for t, o in ptr.items() if o and ptr.get(o) == t)
+        print(f"  reciprocity: {ok} of {len(ptr)} terminals point at a terminal "
+              f"that points back")
 
         if args.dry_run:
             continue
@@ -89,10 +86,11 @@ def main():
                         c.get("conf") or "unknown", int(c.get("v") or 0)))
         for e in keep_ends:
             db.execute("""INSERT INTO wd_wire_end
-                          (sheet_id,wire_no,colour_code,component_code,pin,
-                           circuit_ids,x,y,src,conf,verified,notes)
-                          VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
-                       (sid, e["no"].strip(), (e.get("col") or "").strip() or None,
+                          (sheet_id,terminal_no,to_terminal,colour_code,
+                           component_code,pin,circuit_ids,x,y,src,conf,verified,notes)
+                          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                       (sid, e["term"].strip(), (e.get("to") or "").strip() or None,
+                        (e.get("col") or "").strip() or None,
                         (e.get("comp") or "").strip() or None,
                         (e.get("pin") or "").strip() or None,
                         ",".join(sorted({c.strip() for c in (e.get("circuits") or [])

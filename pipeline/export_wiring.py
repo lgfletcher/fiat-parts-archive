@@ -28,7 +28,8 @@ WIRE_END_DDL = """
 CREATE TABLE IF NOT EXISTS wd_wire_end (
     id             INTEGER PRIMARY KEY,
     sheet_id       INTEGER NOT NULL REFERENCES wd_sheet(id),
-    wire_no        TEXT NOT NULL,
+    terminal_no    TEXT NOT NULL,        -- THIS end's index, as printed
+    to_terminal    TEXT,                 -- the index this end points AT
     colour_code    TEXT,
     component_code TEXT,
     pin            TEXT,
@@ -41,7 +42,7 @@ CREATE TABLE IF NOT EXISTS wd_wire_end (
     notes          TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_wd_end_sheet ON wd_wire_end(sheet_id);
-CREATE INDEX IF NOT EXISTS idx_wd_end_no    ON wd_wire_end(sheet_id, wire_no);
+CREATE INDEX IF NOT EXISTS idx_wd_end_no    ON wd_wire_end(sheet_id, terminal_no);
 """
 
 
@@ -71,11 +72,13 @@ def fetch_overlay(db, diagram_id, sheet_ids):
                           "conf": w["conf"], "v": w["verified"], "notes": w["notes"]})
     ends = []
     for sheet_no, sid in sheet_ids.items():
-        for e in db.execute("""SELECT wire_no,colour_code,component_code,pin,
+        for e in db.execute("""SELECT terminal_no,to_terminal,colour_code,
+                                      component_code,pin,
                                       circuit_ids,x,y,src,conf,verified,notes
                                FROM wd_wire_end WHERE sheet_id=?
-                               ORDER BY wire_no,y""", (sid,)):
-            ends.append({"s": sheet_no, "no": e["wire_no"], "col": e["colour_code"],
+                               ORDER BY CAST(terminal_no AS INTEGER)""", (sid,)):
+            ends.append({"s": sheet_no, "term": e["terminal_no"],
+                         "to": e["to_terminal"], "col": e["colour_code"],
                          "comp": e["component_code"], "pin": e["pin"],
                          "circuits": [c for c in (e["circuit_ids"] or "").split(",") if c],
                          "x": e["x"], "y": e["y"], "src": e["src"],
@@ -98,6 +101,8 @@ def main():
     ap.add_argument("--out", default="docs")
     ap.add_argument("--proposals", default="archive/derived/wiring/proposals",
                     help="OCR wire-end proposals to publish for the editor")
+    ap.add_argument("--legend", default="archive/derived/wiring/legend",
+                    help="component-name legend files to publish for the editor")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -106,8 +111,16 @@ def main():
     db.row_factory = sqlite3.Row
     db.executescript(WIRE_END_DDL)      # no-op once ingest_wiring.py has run
     cols = {r[1] for r in db.execute("PRAGMA table_info(wd_wire_end)")}
-    if "circuit_ids" not in cols:        # table predates circuit tagging
+    if "circuit_ids" not in cols:        # predates circuit tagging
         db.execute("ALTER TABLE wd_wire_end ADD COLUMN circuit_ids TEXT")
+        db.commit(); cols.add("circuit_ids")
+    if "wire_no" in cols and "terminal_no" not in cols:
+        # predates the pointer model: what was recorded as a lone "wire number"
+        # is really this terminal's own index.
+        db.execute("ALTER TABLE wd_wire_end RENAME COLUMN wire_no TO terminal_no")
+        db.commit(); cols.add("terminal_no")
+    if "to_terminal" not in cols:
+        db.execute("ALTER TABLE wd_wire_end ADD COLUMN to_terminal TEXT")
         db.commit()
 
     index = []
@@ -168,6 +181,16 @@ def main():
             shutil.copy2(f, prop_dst / f.name); n += 1
         if n:
             print(f"published {n} OCR proposal file(s) for the editor")
+
+    leg_src = Path(args.legend)
+    if leg_src.is_dir():
+        leg_dst = out / "wiringlegend"
+        leg_dst.mkdir(parents=True, exist_ok=True)
+        n = 0
+        for f in sorted(leg_src.glob("*.json")):
+            shutil.copy2(f, leg_dst / f.name); n += 1
+        if n:
+            print(f"published {n} component-name legend file(s) for the editor")
 
     (out / "wiring_index.js").write_text("window.WIRING_INDEX=" + json.dumps(index) + ";")
     (out / "wiring.html").write_text(TEMPLATE)
@@ -440,7 +463,7 @@ function show(i){
   ovl.setAttribute('width',s.w);ovl.setAttribute('height',s.h);
   ovl.setAttribute('viewBox',`0 0 ${s.w} ${s.h}`);
   sel=null;
-  if(ED)loadWork();
+  if(ED){loadWork();loadLegend();}
   drawOverlay();
   fit();
   buildNav();
@@ -465,15 +488,43 @@ function colourHex(code){
 function sheetComps(){return ED?W.comps:(dg.components||[]).filter(c=>c.s===dg.sheets[cur].n);}
 function sheetEnds(){return ED?W.ends:(dg.ends||[]).filter(e=>e.s===dg.sheets[cur].n);}
 function inFocus(circuits){return !focusCircuit||(circuits||[]).includes(focusCircuit);}
-function endCounts(){
-  const c={};sheetEnds().forEach(e=>{const k=(e.no||'').trim();if(k)c[k]=(c[k]||0)+1;});return c;
+/* The sheet's own integrity rule: terminal A names B as the far end, and B
+   must name A back. This validates BOTH numbers at BOTH ends, so one misread
+   digit surfaces as a broken round trip instead of a plausible wrong wire. */
+function endIndex(){
+  const byT={},dups=new Set();
+  sheetEnds().forEach(e=>{const t=(e.term||'').trim();
+    if(!t)return; if(byT[t])dups.add(t); else byT[t]=e;});
+  return {byT,dups};
+}
+function reciprocity(){
+  const {byT,dups}=endIndex();
+  const good=[],dangling=[],oneway=[],unpointed=[];
+  Object.keys(byT).forEach(t=>{
+    const o=(byT[t].to||'').trim();
+    if(!o){unpointed.push(t);return;}
+    const other=byT[o];
+    if(!other){dangling.push([t,o]);return;}
+    if(((other.to||'').trim())!==t){oneway.push([t,o,(other.to||'').trim()||'nothing']);return;}
+    good.push(t);
+  });
+  return {good,dangling,oneway,unpointed,dups:[...dups],total:Object.keys(byT).length};
+}
+function endState(e){
+  const {byT}=endIndex();
+  const t=(e.term||'').trim(),o=(e.to||'').trim();
+  if(!t)return 'bad';
+  if(!o)return 'bad';
+  const other=byT[o];
+  if(!other)return 'bad';
+  return ((other.to||'').trim()===t)?'ok':'bad';
 }
 function drawOverlay(){
   const s=dg.sheets[cur];
   ovl.innerHTML='';
   ovl.classList.toggle('editing',ED);
   const wires=(dg.wires||[]).filter(w=>w.s===s.n);
-  const comps=sheetComps(), ends=sheetEnds(), counts=endCounts();
+  const comps=sheetComps(), ends=sheetEnds();
   const compCircuits={};
   wires.forEach(w=>{(w.circuits||[]).forEach(cc=>{
     [w.from,w.to].forEach(k=>{if(k){(compCircuits[k]=compCircuits[k]||new Set()).add(cc);}});});});
@@ -482,14 +533,16 @@ function drawOverlay(){
   // invisible, draw a dashed straight run between its two ends: it is honestly
   // not the route the loom takes, and it is dashed to say so, but it makes the
   // netlist visible and clickable the moment it is transcribed.
-  const endsByNo={};
-  ends.forEach(e=>{const k=(e.no||'').trim();if(k)(endsByNo[k]=endsByNo[k]||[]).push(e);});
+  const endsByTerm={};
+  ends.forEach(e=>{const k=(e.term||'').trim();if(k)endsByTerm[k]=e;});
   wires.forEach((w,i)=>{
     let segs=w.path||[];
     let derived=false;
     if(!segs.length){
-      const g2=endsByNo[(w.label||'').trim()]||[];
-      if(g2.length===2){segs=[[[g2[0].x,g2[0].y],[g2[1].x,g2[1].y]]];derived=true;}
+      const parts=(w.label||'').split('-');
+      const a=endsByTerm[parts[0]],b=endsByTerm[parts[1]];
+      if(a&&b){segs=[[[a.x,a.y],[b.x,b.y]]];derived=true;}
+      derived=!!(a&&b);
     }
     segs.forEach(seg=>{
       if(!seg||seg.length<2)return;
@@ -527,9 +580,9 @@ function drawOverlay(){
 
   ends.forEach((e,idx)=>{
     if(e.x==null)return;
-    const n=(counts[(e.no||'').trim()]||0);
     const g=mk('g');
-    g.setAttribute('class','end'+(e.src==='ocr'?' ocr':'')+(n===2?'':' bad')
+    g.setAttribute('class','end'+(e.src==='ocr'?' ocr':'')
+      +(endState(e)==='ok'?'':' bad')
       +(inFocus(e.circuits)?'':' dim')
       +(sel&&sel.kind==='end'&&sel.i===idx?' sel':''));
     const ci=mk('circle');
@@ -537,7 +590,8 @@ function drawOverlay(){
     g.appendChild(ci);
     const t=mk('text');
     t.setAttribute('x',e.x*s.w);t.setAttribute('y',e.y*s.h);
-    t.textContent=(e.col?e.col+' ':'')+(e.no||'?');g.appendChild(t);
+    t.textContent=(e.col?e.col+' ':'')+(e.term||'?')
+      +((e.to||'').trim()?'\u2192'+e.to:'');g.appendChild(t);
     g.onclick=ev=>{ev.stopPropagation();sel={kind:'end',data:e,i:idx};
       tab=ED?'edit':'sheet';syncTabs();renderPanel();drawOverlay();};
     ovl.appendChild(g);
@@ -546,13 +600,12 @@ function drawOverlay(){
   const n=wires.length+comps.length+ends.length;
   const hint=document.getElementById('ovlhint');
   if(ED){
-    const paired=Object.values(counts).filter(v=>v===2).length,
-          tot=Object.keys(counts).length;
-    hint.textContent=`${comps.length} components, ${ends.length} wire ends — `+
-      `${paired}/${tot} numbers pair cleanly.`;
+    const r=reciprocity();
+    hint.textContent=`${comps.length} components, ${ends.length} terminals — `+
+      `${r.good.length}/${r.total} point at a terminal that points back.`;
   }else{
     hint.textContent = n
-      ? `${comps.length} components, ${ends.length} wire ends, ${wires.length} wires on this sheet.`
+      ? `${comps.length} components, ${ends.length} terminals, ${wires.length} wires on this sheet.`
       : 'Nothing recorded on this sheet yet. Open the editor with ?edit=1 to start.';
   }
   ovl.style.display=(n||ED)?'block':'none';
@@ -795,6 +848,18 @@ function mk(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
 function syncTabs(){
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.tab===tab));
 }
+let LEGEND={};
+/* The component legend is printed on the pages beside the schematic and OCRs
+   cleanly, unlike the wire numbers — so here it is worth automating. It only
+   ever fills an empty field. */
+function loadLegend(){
+  LEGEND={};
+  const s=dg.sheets[cur];
+  fetch(`wiringlegend/${slug}-s${String(s.n).padStart(2,'0')}.json`)
+    .then(r=>r.ok?r.json():null)
+    .then(o=>{if(o&&o.names){LEGEND=o.names;if(tab==='edit')renderPanel();}})
+    .catch(()=>{});
+}
 function storeKey(){return 'wiring-edit:'+slug+':'+dg.sheets[cur].n;}
 function saveWork(){
   try{localStorage.setItem(storeKey(),JSON.stringify(W));}catch(err){/* private mode, quota */}
@@ -824,7 +889,7 @@ function setEdit(on){
   document.getElementById('tab-edit').style.display=on?'':'none';
   document.getElementById('ed-toggle').classList.toggle('on',on);
   document.getElementById('ed-export').style.display=on?'':'none';
-  if(on){loadWork();tab='edit';}
+  if(on){loadWork();loadLegend();tab='edit';}
   else if(tab==='edit'){tab='sheet';}
   sel=null;syncTabs();
   if(dg){
@@ -865,7 +930,7 @@ viewer.addEventListener('mousedown',ev=>{
   ev.stopPropagation();
   const p=toImg(ev);
   if(tool==='end'){
-    W.ends.push({no:'',col:'',comp:'',pin:'',circuits:[],
+    W.ends.push({term:'',to:'',col:'',comp:'',pin:'',circuits:[],
                  x:+p.x.toFixed(6),y:+p.y.toFixed(6),
                  src:'manual',conf:'unknown',v:0});
     sel={kind:'end',data:W.ends[W.ends.length-1],i:W.ends.length-1};
@@ -904,15 +969,15 @@ function field(id,label,val,ph){
          `<input id="${id}" value="${esc(val||'')}" placeholder="${esc(ph||'')}">`;
 }
 function renderEdit(){
-  const counts=endCounts();
-  const distinct=Object.keys(counts), paired=distinct.filter(k=>counts[k]===2);
-  const singles=distinct.filter(k=>counts[k]===1).sort();
-  const over=distinct.filter(k=>counts[k]>2).sort();
+  const R=reciprocity();
   let h='';
   if(sel&&sel.kind==='comp'){
     const c=sel.data;
+    const suggested=LEGEND[(c.code||'').trim()];
     h+=`<div class="sec frm"><h3>Component</h3>
       ${field('f-code','Callout number',c.code,'e.g. 27')}
+      ${suggested?`<div class="stat good" style="margin-top:6px">
+        <span>Legend says</span><b style="font-weight:600">${esc(suggested)}</b></div>`:''}
       ${field('f-name','Name (as printed)',c.name,'')}
       ${field('f-en','Name in English',c.en,'e.g. Turn signal relay')}
       ${field('f-loc','Where on the car',c.loc,'e.g. behind the dash, LH')}
@@ -922,9 +987,10 @@ function renderEdit(){
       <label for="f-notes">Notes</label><textarea id="f-notes" rows="3">${esc(c.notes||'')}</textarea>
       <div class="ebar"><button id="b-del">Delete</button></div></div>`;
   } else if(sel&&sel.kind==='end'){
-    const e=sel.data, n=counts[(e.no||'').trim()]||0;
-    h+=`<div class="sec frm"><h3>Wire end</h3>
-      ${field('f-no','Wire number',e.no,'e.g. 258')}
+    const e=sel.data, st=endState(e);
+    h+=`<div class="sec frm"><h3>Terminal</h3>
+      ${field('f-term','This terminal number',e.term,'the small trailing number')}
+      ${field('f-to','Goes to terminal',e.to,'the number beside the colour')}
       ${field('f-col','Colour code',e.col,'e.g. GR')}
       ${field('f-comp','At component',e.comp,'callout number')}
       ${field('f-pin','Terminal / pin',e.pin,'')}
@@ -932,8 +998,8 @@ function renderEdit(){
       <select id="f-circ" multiple size="6">${(dg.circuits||[]).map(c=>
         `<option value="${esc(c.code)}"${(e.circuits||[]).includes(c.code)?' selected':''}>`+
         `${esc(c.name)}</option>`).join('')}</select>
-      <div class="stat ${n===2?'good':'bad'}"><span>This number appears</span>
-        <b>${n}&times;</b></div>
+      <div class="stat ${st==='ok'?'good':'bad'}"><span>Round trip</span>
+        <b>${st==='ok'?'reciprocated':'not yet'}</b></div>
       ${e.col?`<div class="stat"><span>${esc(colourName(e.col))}</span>
         <span>${swatch(e.col)}</span></div>`:''}
       <div class="ebar"><button id="b-del">Delete</button></div></div>`;
@@ -942,48 +1008,70 @@ function renderEdit(){
       add a component, or click a wire stub to add a wire end. Keys: 1 select,
       2 component, 3 wire end, Delete removes the selection.</p></div>`;
   }
-  h+=`<div class="sec"><h3>Pairing check</h3>
+  h+=`<div class="sec"><h3>Reciprocity check</h3>
     <div class="stat"><span>Components</span><b>${W.comps.length}</b></div>
-    <div class="stat"><span>Wire ends</span><b>${W.ends.length}</b></div>
-    <div class="stat good"><span>Numbers pairing cleanly</span><b>${paired.length}</b></div>
-    <div class="stat ${singles.length?'bad':''}"><span>Appearing once</span><b>${singles.length}</b></div>
-    <div class="stat ${over.length?'bad':''}"><span>Appearing 3+ times</span><b>${over.length}</b></div>
-    <p style="margin-top:8px">Every wire number is printed at both ends of its wire, so
-    anything not appearing exactly twice is an error — a missed end, or a misread digit.</p>`;
-  singles.slice(0,40).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
-    <b>${esc(k)}</b> — only one end recorded</div>`;});
-  over.slice(0,40).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
-    <b>${esc(k)}</b> — ${counts[k]} ends recorded</div>`;});
+    <div class="stat"><span>Terminals</span><b>${W.ends.length}</b></div>
+    <div class="stat good"><span>Round trips complete</span><b>${R.good.length}</b></div>
+    <div class="stat ${R.unpointed.length?'bad':''}"><span>No pointer yet</span><b>${R.unpointed.length}</b></div>
+    <div class="stat ${R.dangling.length?'bad':''}"><span>Points at a missing terminal</span><b>${R.dangling.length}</b></div>
+    <div class="stat ${R.oneway.length?'bad':''}"><span>Not reciprocated</span><b>${R.oneway.length}</b></div>
+    <div class="stat ${R.dups.length?'bad':''}"><span>Duplicate terminal numbers</span><b>${R.dups.length}</b></div>
+    <p style="margin-top:8px">Terminal A names B as the far end, and B must name A back.
+    That checks both numbers at both ends, so a single misread digit breaks the round
+    trip instead of quietly becoming a wrong wire.</p>`;
+  R.dups.slice(0,20).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
+    <b>${esc(k)}</b> — this terminal number is recorded twice</div>`;});
+  R.oneway.slice(0,30).forEach(([a,b,back])=>{h+=`<div class="prob" data-no="${esc(a)}">
+    <b>${esc(a)}</b> &rarr; ${esc(b)}, but ${esc(b)} &rarr; ${esc(back)}</div>`;});
+  R.dangling.slice(0,30).forEach(([a,b])=>{h+=`<div class="prob" data-no="${esc(a)}">
+    <b>${esc(a)}</b> &rarr; ${esc(b)}, which isn't transcribed yet</div>`;});
+  R.unpointed.slice(0,30).forEach(k=>{h+=`<div class="prob" data-no="${esc(k)}">
+    <b>${esc(k)}</b> — no far-end number recorded</div>`;});
   h+=`</div><div class="sec"><h3>Session</h3>
     <div class="ebar">
       <button id="b-export" class="primary">Export edits</button>
-      <button id="b-ocr">Load OCR proposals</button>
+      <button id="b-ocr" title="Measured on the pilot sheet: about 11% of stubs read, 6% self-consistent. Usually slower than typing.">Load OCR proposals (low yield)</button>
       <button id="b-reset">Discard draft</button>
     </div>
     <p style="margin-top:8px">Work is saved in this browser as you go. Export writes a
-    JSON snapshot for <code>apply_wiring_edits.py</code>. OCR proposals arrive
-    unconfirmed and dashed — they are a starting point, not an answer.</p></div>`;
+    JSON snapshot for <code>apply_wiring_edits.py</code>.</p>
+    <p style="margin-top:6px">OCR proposals arrive unconfirmed and dashed. Measured on
+    this sheet they read about 11% of stubs and only 6% survive the reciprocity
+    check, so they are usually slower than typing — the button is here because
+    that may not hold on a cleaner sheet.</p></div>`;
   panel.innerHTML=h;
 
   const bind=(id,key,obj)=>{const el=document.getElementById(id);if(!el)return;
     el.oninput=()=>{obj[key]=el.value;saveWork();drawOverlay();};};
   if(sel&&sel.kind==='comp'){
-    bind('f-code','code',sel.data);bind('f-name','name',sel.data);
+    bind('f-name','name',sel.data);
     bind('f-en','en',sel.data);bind('f-loc','loc',sel.data);
     bind('f-notes','notes',sel.data);bind('f-conf','conf',sel.data);
+    // typing a callout number fills the English name from the legend, but only
+    // into an empty field — it proposes, it never overwrites what you typed
+    const cd=document.getElementById('f-code');
+    if(cd)cd.oninput=()=>{
+      sel.data.code=cd.value;
+      const sug=LEGEND[cd.value.trim()];
+      if(sug&&!(sel.data.en||'').trim()){
+        sel.data.en=sug;
+        const en=document.getElementById('f-en');if(en)en.value=sug;
+      }
+      saveWork();drawOverlay();renderEdit();
+    };
   }
   if(sel&&sel.kind==='end'){
-    ['no','col','comp','pin'].forEach(k=>bind('f-'+k,k,sel.data));
+    ['col','comp','pin'].forEach(k=>bind('f-'+k,k,sel.data));
     const cs=document.getElementById('f-circ');
     if(cs)cs.onchange=()=>{sel.data.circuits=[...cs.selectedOptions].map(o=>o.value);
       saveWork();drawOverlay();};
-    const no=document.getElementById('f-no');
-    if(no)no.oninput=()=>{sel.data.no=no.value;sel.data.src='manual';
-      saveWork();drawOverlay();renderEdit();};
+    ['term','to'].forEach(k=>{const el=document.getElementById('f-'+k);
+      if(el)el.oninput=()=>{sel.data[k]=el.value;sel.data.src='manual';
+        saveWork();drawOverlay();renderEdit();};});
   }
   const del=document.getElementById('b-del');if(del)del.onclick=deleteSelected;
   panel.querySelectorAll('.prob').forEach(el=>{el.onclick=()=>{
-    const k=el.dataset.no;const i=W.ends.findIndex(e=>(e.no||'').trim()===k);
+    const k=el.dataset.no;const i=W.ends.findIndex(e=>(e.term||'').trim()===k);
     if(i>=0){sel={kind:'end',data:W.ends[i],i};zoomTo(W.ends[i]);drawOverlay();renderEdit();}};});
   document.getElementById('b-export').onclick=exportEdits;
   document.getElementById('b-ocr').onclick=loadProposals;
@@ -1019,12 +1107,14 @@ function loadProposals(){
         const k=Math.round(e.x*4000)+':'+Math.round(e.y*4000);
         if(have.has(k))return;
         have.add(k);added++;
-        W.ends.push({no:e.wire_no||'',col:e.colour||'',comp:'',pin:'',circuits:[],
+        W.ends.push({term:e.terminal_no||'',to:e.to_terminal||'',
+                     col:e.colour||'',comp:'',pin:'',circuits:[],
                      x:e.x,y:e.y,src:'ocr',conf:'unknown',v:0});
       });
       saveWork();drawOverlay();renderEdit();
-      alert(`Added ${added} OCR proposals. They are dashed and unconfirmed — `+
-            `check each against the print before exporting.`);
+      alert(`Added ${added} OCR proposals, all unconfirmed and dashed.\n\n`+
+            `Check every one against the print. On this sheet most are wrong; `+
+            `Discard draft puts you back where you started.`);
     })
     .catch(err=>alert('No proposal file for this sheet ('+url+').\n\n'+
       'Generate one with:\n  python3 pipeline/propose_wire_ends.py --diagram '+slug+
